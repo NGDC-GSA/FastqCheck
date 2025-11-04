@@ -1,0 +1,261 @@
+Release log of FastqCheck
+
+===================== Version1.0.0 =====================
+Version: 1.0.0
+Date:    2022-07-25
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. support for single-end and multiple (pair-end) fastq files
+    2. phred and pair-marker ('1', '2') consistency check
+    3. windows break check ('\r\n')
+    4. check whether the read name of multiple fastq files are in same order
+    5. check duplication of read name in the fastq file.
+    6. calculate distribution of bases('ACTGN'), quality and read length
+
+
+===================== Version1.1.0 =====================
+Version: 1.1.0
+Date:    2022-08-05
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. update the bloom_filter to version 1.2 to support for larege files (uin32_t -> uint64_t)
+    2. add release log for fastqcheck
+    3. bloomfilter_init(): 
+        modified the fix parameters ('0.15' -> '0.25') to enable allocate more memory for bloomfilter
+    4. fastq_statistics_process():
+        fix the potential bug that induced by memory resize of f_len_obj->n_max
+    5. modified the memory resize step from '<<5' to '<<3'
+    6. output the quality score(calculated with phred) rather than ASCII of quality
+    7. only the fatal error can cause the program to exit
+
+
+===================== Version1.1.1 =====================
+Version: 1.1.1
+Date:    2022-08-11
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. update how error message are displayed (only show once for the same error message)
+    2. add line number where the error message occured
+    3. modify the structure of message_t
+        (1) add cache_status, n_duplicate, length_check, pair_check, win_break_check, phred_check 
+        (2) make these variables globally accessible
+
+
+===================== Version1.1.2 =====================
+Version: 1.1.2
+Date:    2022-08-12
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fix the potential BUG introduced by less memory allocated for bloomfilter
+       add the function of "get_max_file_size()" to get the maximum file size from the given fastq files
+
+
+===================== Version1.1.3 =====================
+Version: 1.1.3
+Date:    2022-09-01
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. enables the program to distinguish between gizp_file errors and fastq_read errors
+    2. separate system error and processing information
+
+
+===================== Version1.1.4 =====================
+Version: 1.1.4
+Date:    2022-09-09
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. file_read.h: limit the maximum allowed read length to 1MB (1048576)
+    2. file_read.c/gz_stream_open(): add support for file format checking of gzip(.gz) and bzip2(.gz2) by MAGIC NUMBER
+
+
+===================== Version1.1.5 =====================
+Version: 1.1.5
+Date:    2022-09-26
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/fastq_cache_read(): add line number description for fastq files with different lengths
+
+
+===================== Version1.1.6 =====================
+Version: 1.1.6
+Date:    2022-10-31
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. format ERRORS into three kind (SysError, FileError, FormatError) and add corresponding error codes
+    2. strictly require the pair marker to be consistent with the file index
+    3. print the warnings to stander out (stdout)
+    4. calculate the proportion of invalid bases(Non-ATCGN) and output 'FormatError' when exceed the threshold
+
+
+===================== Version1.1.7 =====================
+Version: 1.1.7
+Date:    2022-11-03
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. file_type.h/c: check the file format by the file magic number
+    2. common file types can be detected (rar, gz, tar, bz2, zip), in case the user changes the file name
+
+
+===================== Version1.1.8 =====================
+Version: 1.1.8
+Date:    2022-12-01
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. an optional parameter '-m|--max_length' was added for optential very long sequence (Third generation sequencing)
+       the default max_length is 50MB (52,428,800 bp)
+    2. NOT performing the 'pair_check' in single-end fastq file
+
+
+===================== Version1.1.9 =====================
+Version: 1.1.9
+Date:    2023-01-29
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. add function "fastq_check.c/bloomfilter_size_init()" to set enough memory for bloomfilter
+       used to handle error code:023 (not enough memory for bloomfilter)
+
+
+===================== Version1.1.10 =====================
+Version: 1.1.10
+Date:    2023-02-02
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/calculate_result_summary(): modify the path of "Run accession"
+       remove the prefix before '/CRA'
+       eg. raw:   "/p300/gsafileprocess/temp/CRA009671/CRR646064/"
+           after: "CRA009671/CRR646064"
+
+
+===================== Version1.1.11 =====================
+Version: 1.1.11
+Date:    2023-02-07
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. file_type.c/file_type_check(): fix the bug that can't check the truncated file when
+       the file is smaller than 1MB
+    2. remove the redundant format checking in main function
+    3. add function 'file_truncated_check' to check whether the file is truncated after obtain
+       error code (-2 and -3) from fastq_cache_read
+
+
+===================== Version1.1.12 =====================
+Version: 1.1.12
+Date:    2023-02-13
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/main(): add processing progress of fastq file to help the author 
+       determine where to exit unexpectedly
+    2. file_read.c/gz_read_util(): add 'GZip Error Code' support for all kind of errors
+    
+
+===================== Version1.1.13 =====================
+Version: 1.1.13
+Date:    2023-02-23
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. file_read.c/gz_read_util: fix the BUG introduced only when the unziped file size is
+       exactly an integer multiple of 1MB (1048576 byte)
+
+
+===================== Version1.1.14 =====================
+Version: 1.1.14
+Date:    2023-03-01
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/main: fix the BUG introduced by the fastq_cache_read when the first cache return -1
+    2. allow to check whether the files are truncated for all fastq files in the input
+       
+
+===================== Version1.1.15 =====================
+Version: 1.1.15
+Date:    2023-03-29
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/write_result_summary: fix the BUG introduced by XML, which need to convert <GC-Content="50.86%"/>
+       to <GC-Content value="50.86%"/>
+
+
+===================== Version1.1.16 =====================
+Version: 1.1.16
+Date:    2023-04-14
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. fastq_check.c/file_truncated_check: fix the BUG that skip the record error introduced by 'truncated file', which 
+       will result in empty 'Error' and empty xml file
+
+
+===================== Version1.1.17 =====================
+Version: 1.1.17
+Date:    2023-08-22
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    1. file_read.c/file_name_copy: fix the 'malloc(): memory corruption'. This bug is introduced by error access to memory
+       that not allocated! 
+       Note: if the given 'str' is not end with '\r' or '\n', the 'idx' will be equal to l_str, so dest_str[idx] will exceed
+             the real memory allocated to dest_str.
+
+
+===================== Version1.1.18 =====================
+Version: 1.1.18
+Date:    2023-09-04
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    since the most of the ERROR:014 are induced by "failed to detect line breaks('\n')", therefore, add the line breaker detection
+    1. file_read.c/gz_read_util: when ks_str->m > max_len, return -2 to tell the user that
+    the issue is mainly due to the line breaks of the read
+    2. fastq_check.c/fastq_cache_read: store the error introduced by the too long read (rare)
+    or failed to detect line breaks (mainly)
+
+
+===================== Version1.1.19 =====================
+Version: 1.1.19
+Date:    2023-10-05
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    some of the fastq file has a very high compression ratio, so that underestimated the size of the bloomfilter
+    1. params_parse.c: add parameter -r|--ratio, which allow user to specify the compression ratio of the input fastq file
+    2. fastq_check.c/bloomfilter_size_init: add parameter of compress_ratio
+
+
+===================== Version1.1.20 =====================
+Version: 1.1.20
+Date:    2024-02-20
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    some of the fastq file from BGISEQ-2000 and MGISEQ-2000 have a special pair_marker:
+    e.g. "@HWI-ST833:189:5:2200#0/2" or "@HWI-ST833:189:5:2200#0/2\t5\t1"
+    modify both get_first_read_marker and read_name_trim with isspace(ctype.h) to process such conditions
+
+
+===================== Version1.1.21 =====================
+Version: 1.1.21
+Date:    2024-04-26
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    modify the GZ_BUFF_SIZE and add a function of gzbuffer to increase IO throughput
+    1. file_read.h: set GZ_BUFF_SIZE to 4MB
+    2. file_read.c: set gzbuffer to 128MB (default 8K)
+    
