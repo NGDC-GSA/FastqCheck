@@ -1,0 +1,4 @@
+.idea/
+*.o
+fastq_check
+.DS_Store
