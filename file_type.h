@@ -16,7 +16,14 @@
 #include <bzlib.h>
 
 
-typedef struct __type_t {
+/*! @typedef type_t
+  @abstract the file type object, which stores the magic code of a file format
+  @field  index          the offset of the magic code in the file header (0 for gz/bz2/zip/rar, 257 for tar)
+  @field  len            the length of the magic code
+  @field  code           the magic code of the file format
+  @field  format         the name of the file format (eg. gz, bz2, zip, rar, tar)
+ */
+typedef struct type_t {
     uint32_t index;
     uint32_t len;
     uint8_t code[8];
