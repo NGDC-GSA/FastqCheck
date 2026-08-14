@@ -14,7 +14,14 @@ else
 endif
 
 
-OBJECT = file_read.o params_parse.o file_type.o fastq_check.o
+OBJECT = bloom_filter.o \
+		 file_read.o \
+		 file_type.o \
+		 kqueue.o \
+		 params_parse.o \
+		 threadpool.o\
+		 fastq_check.o
+
 PROG = fastq_check
 
 all: $(PROG)
