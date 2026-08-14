@@ -1,8 +1,8 @@
 # Makefile of FastqCheck (2022/07/29)
 
 CC = gcc
-CFLAGS = -std=c99
-LIBS = -lz -lbz2 -lm
+CFLAGS = -std=c99 -D_GNU_SOURCE
+LIBS = -lz -lbz2 -lm -lpthread
 INCLUDE =
 
 DEBUG = 0
