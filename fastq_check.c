@@ -489,7 +489,7 @@ static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  
                         f_cache->reads[f_cache->n].name.s);
                 fprintf(msg->err_fp,
                         "[*] File%d: the line number of the error read is %lld!\n",
-                        file_idx + 1, task->total_reads * 4 + 1);
+                        file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
                 break;
 
             case -3:  /* failed to detect line breaks('\n') */
@@ -497,7 +497,7 @@ static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  
                         "[FormatError:fastq_reader_error_handle:212] failed to detect line breaks('\\n') in the READ!\n");
                 fprintf(msg->err_fp,
                         "[*] File%d: the line number of the error read is %lld!\n",
-                        file_idx + 1, task->total_reads * 4 + 1);
+                        file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
                 break;
 
             default:  /* (ret_value == -1) unexpected end of the fastq file */
@@ -525,14 +525,15 @@ static int32_t fastq_reader_cache_handle(threadpool_t *thr_pool, reader_job_t *j
         threadpool_add(thr_pool, thread_fastq_reader_core, job, 0);
     }
 
-    /* n_reads is the total reads caching from input file */
-    task->total_reads += task->cache->n;
-
     /* submit fastq check task for read format checking */
     pthread_mutex_lock(&task->status_lock);
     while (task->status != batch_mask)
         pthread_cond_wait(&task->batch_ready, &task->status_lock);
     pthread_mutex_unlock(&task->status_lock);
+
+    /* the total reads is the previous accumulated reads count */
+    task->total_reads = jobs->read_offset;
+    jobs->read_offset += task->cache->n;
 
     /* handle errors and EOF during fastq caching */
     return fastq_reader_error_process(jobs, task, task->msg_obj);

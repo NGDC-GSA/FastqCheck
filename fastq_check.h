@@ -161,11 +161,13 @@ typedef struct thread_task_t {
   @field  task             the pointer to the thread task object being processed
   @field  file_idx         the index of the file in the task
   @field  ret_value        the return value of the fastq reading (1: normal, 0: EOF, negative: error)
+  @field  read_offset      the offset of the first read in the whole file
  */
 typedef struct reader_job_t {
     thread_task_t *task;
     int32_t file_idx;
     int32_t ret_value;
+    uint64_t read_offset;
 } reader_job_t;
 
 
