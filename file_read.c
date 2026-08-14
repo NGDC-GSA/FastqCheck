@@ -12,7 +12,7 @@
 static char *file_name_copy(const char *str)
 {
     char *dest_str;
-    int l_str = strlen(str) + 1, idx;
+    int l_str = (int)strlen(str) + 1, idx;
 
     dest_str = (char *)malloc(l_str * sizeof(char));
     if (!dest_str) {
@@ -41,8 +41,7 @@ FileObject *read_file_list(char *file_list)
     }
 
     FileObject *file_obj = calloc(1, sizeof(FileObject));
-    char *fn;
-    
+
     while (fgets(buf, PATH_MAX, file_fp)) {
         if (buf[0]=='\r' || buf[0]=='\n') continue;  /* skip blank line */
 
@@ -51,7 +50,7 @@ FileObject *read_file_list(char *file_list)
             file_obj->file_name = (char **)realloc(file_obj->file_name, sizeof(char*) * file_obj->n_max);
             file_obj->gz_hd = (GzStream **)realloc(file_obj->gz_hd, sizeof(GzStream*) * file_obj->n_max);
         }
-        fn = file_name_copy(buf);
+        char *fn = file_name_copy(buf);
         file_obj->file_name[file_obj->n] = fn;
         file_obj->gz_hd[file_obj->n++] = gz_stream_open(fn, "r");
     } fclose(file_fp);
@@ -64,8 +63,8 @@ FileObject *read_file_list(char *file_list)
 /* eg. get_str_ends('/home/xlzh/test.fq.gz', '.gz') -> true */
 static int get_str_ends(char *str, char *sub)
 {
-    int i=strlen(str)-1;
-    int j=strlen(sub)-1;
+    int i = (int)strlen(str)-1;
+    int j = (int)strlen(sub)-1;
 
     if(i<j) return 0;
     for(; i>=0 && j>=0; i--,j--){
@@ -219,6 +218,40 @@ int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length
     } while (!gz->is_eof);
 
     return 0;  /* end of the file (EOF) */
+}
+
+
+int gz_read_block(GzStream *gz)
+{
+    if(gz->is_eof && gz->begin>=gz->end)  /* end of the file */
+        return 0;
+
+    if (gz->gz_fp) {
+        gz->end = gzread(gz->gz_fp, gz->buf, GZ_BUFF_SIZE);
+        gzerror(gz->gz_fp, &(gz->bzerror));
+
+        if (gz->bzerror < 0)  /* truncated file detected */
+            return -1;
+
+        if (gz->end < GZ_BUFF_SIZE)  /* end of the file (EOF) detected */
+            return 0;
+
+        return 1;  /* normal reading of the block */
+    }
+
+    if (gz->bz2_fp) {
+        gz->end = BZ2_bzRead(&(gz->bzerror), gz->bz2_fp, gz->buf, GZ_BUFF_SIZE);
+
+        if (gz->bzerror != BZ_OK)  /* truncated file detected */
+            return -1;
+
+        if (gz->bzerror == BZ_STREAM_END)  /* end of the file (EOF) detected */
+            return 0;
+
+        return 1;  /* normal reading of the block */
+    }
+
+    return -2;  /* unexpected condition existed */
 }
 
 
