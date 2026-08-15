@@ -16,7 +16,6 @@ endif
 
 OBJECT = bloom_filter.o \
 		 file_read.o \
-		 file_type.o \
 		 kqueue.o \
 		 params_parse.o \
 		 threadpool.o\
