@@ -96,7 +96,7 @@ int gz_read_block(GzStream *gz);
   @param  gz          GzStream object
   @return             
  */
-void gz_stream_destory(GzStream *gz);
+void gz_stream_destroy(GzStream *gz);
 
 
 /*! @function: read fastq file list

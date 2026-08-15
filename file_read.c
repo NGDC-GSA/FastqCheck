@@ -255,7 +255,7 @@ int gz_read_block(GzStream *gz)
 }
 
 
-void gz_stream_destory(GzStream *gz)
+void gz_stream_destroy(GzStream *gz)
 {
     if (gz->is_write){  /* write gz or gz2 file */
         if(gz->gz_fp){
