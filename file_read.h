@@ -15,7 +15,7 @@
 #include <zlib.h>
 #include <bzlib.h>
 
-/* number of bytes readed from *.gz|*.bz2 file */
+/* number of bytes read from *.gz|*.bz2 file */
 #define GZ_BUFF_SIZE (1048576<<2)
 #define PATH_MAX 1024
 
@@ -32,14 +32,15 @@ typedef struct __kstring_t {
 /*! @typedef GzStream
  @abstract structure for gz/bz2 handle
  @field gz_fp        file handle of *.gz
- @field bz2_fp       file handle of *.bgz2
+ @field bz2_fp       file handle of *.bz2
  @field out_fp       file handle of output file
- @field buf          used to store decompressed data, whose size is 'gz_stream_buff_size'
- @field begin, end   begin and end index in the buf
+ @field bzerror      the error code of the bz2 file (BZ_OK: normal)
+ @field buf          used to store decompressed data, whose size is 'GZ_BUFF_SIZE'
+ @field begin, end   begin and end index of the decompressed data in the buf
  @field is_write     is_write:1 -> (for file write)'w', otherwise -> 'r' (for file read)
- @ is_eof            is_eof:1 -> the end of the file
+ @field is_eof       is_eof:1 -> the end of the file
 */
-typedef struct {
+typedef struct GzStream {
     gzFile gz_fp;
     BZFILE *bz2_fp;
     FILE *out_fp;
@@ -54,12 +55,12 @@ typedef struct {
 
 /*! @typedef FileObject
   @abstract the file object constructed by the files provided by user
-  @field  n           the nubmer of files
-  @field  n_max       the maximum memory allocated
+  @field  n           the number of files
+  @field  n_max       the maximum number of files (the array capacity)
   @field  file_name   the name of each file
-  @field  gz_hd       file GzStream handle for each gz/bz2 file
+  @field  gz_hd       the GzStream handle of each gz/bz2 file
  */
-typedef struct {
+typedef struct FileObject {
     int n, n_max;
     char **file_name;
     GzStream **gz_hd;
@@ -82,6 +83,13 @@ GzStream *gz_stream_open(char *file, char *mode);
   @return             operation status: 0->EOF; 1->OK; -1:truncate
  */
 int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length);
+
+
+/*! @function: read total block of binary data into self-host buffer
+  @param  gz          GzStream object
+  @return             operation status: 0->EOF; 1->OK; -1:truncate
+ */
+int gz_read_block(GzStream *gz);
 
 
 /*! @function: destroy the GzStream object

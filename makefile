@@ -1,8 +1,8 @@
 # Makefile of FastqCheck (2022/07/29)
 
 CC = gcc
-CFLAGS = -std=c99
-LIBS = -lz -lbz2 -lm
+CFLAGS = -std=c99 -D_GNU_SOURCE
+LIBS = -lz -lbz2 -lm -lpthread
 INCLUDE =
 
 DEBUG = 0
@@ -14,7 +14,14 @@ else
 endif
 
 
-OBJECT = file_read.o params_parse.o file_type.o fastq_check.o
+OBJECT = bloom_filter.o \
+		 file_read.o \
+		 file_type.o \
+		 kqueue.o \
+		 params_parse.o \
+		 threadpool.o\
+		 fastq_check.o
+
 PROG = fastq_check
 
 all: $(PROG)

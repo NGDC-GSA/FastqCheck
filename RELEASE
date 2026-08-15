@@ -258,4 +258,23 @@ Descrip:
     modify the GZ_BUFF_SIZE and add a function of gzbuffer to increase IO throughput
     1. file_read.h: set GZ_BUFF_SIZE to 4MB
     2. file_read.c: set gzbuffer to 128MB (default 8K)
+
+
+===================== Version2.0.0 =====================
+Version: 2.0.0
+Date:    2026-08-14
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    redesign the check flow as a multithreading pipeline to speed up the checking of large-scale fastq files
+    1. fastq_check.c: add the multithreading pipeline (a reader thread + a reader threadpool with one thread for each input file)
+       a checker threadpool with n_thread threads for the batch content checking;
+       a duplicate-check thread for the read name checking;
+    2. kqueue.c/kqueue.h: add the thread-safe circular queue (kqueue) as the task queue between the reader thread and the duplicate-check thread
+    3. fastq_check.c: add the thread task object (thread_task_t) with the batch status mask protocol (1: batch cached -> 11: content checked -> 111: duplicate checked)
+    4. params_parse.c: add the -t|--thread parameter to set the number of threads used when checking (default: 1)
+    5. bloom_filter.c/bloom_filter.h: split the source code and header file (v1.3) and add BloomFilterCheckAdd (double hashing) for the multithread duplicate checking
+    6. fastq_check.c: fix the data loss bug at the end of the file (the last partial batch was dropped by mistake)
+    7. fastq_check.c: fix the deadlock bug caused by the task status mask (the batch was popped from the queue before all files of the batch were cached)
+    8. fastq_check.c: fix the base count over-count bug in the multithread mode (the running cumulative sum was accumulated repeatedly)
     

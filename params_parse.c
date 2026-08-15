@@ -11,13 +11,16 @@
 static void show_usage(void)
 {
     char *usage =
-        "Usage: fastq_check -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err>\n"
+        "Usage: fastq_check -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err> -x <max_reads> -P <phred_value>\n"
+        "Note: you MUST RUN fastq_type for file type checking before fastq_check!\n\n"
         "Options:\n"
-        "       -h|--help                 print help infomation\n\n"
+        "       -h|--help                 print help information\n\n"
         "[Required]\n"
         "       -i|--in_file        FILE  fastq file list, one sample path per line [.txt]\n"
         "       -o|--out_file       FILE  output xml file of the given fastq files after checking [.xml]\n"
-        "       -e|--error_file     FILE  warning or error message about the given fastq files [.err]\n\n"
+        "       -e|--error_file     FILE  warning or error message about the given fastq files [.err]\n"
+        "       -x|--max_reads      INT   the estimated maximum number of reads (estimated by fastq_type) [unit: million]\n"
+        "       -P|--phred_value    INT   the phred value of the fastq file (estimated by fastq_type, 33 or 64) [required]\n\n"
         "[Optional]\n"
         "       -r|--ratio          INT   the estimated compression ratio of the fastq file [default:10]\n"
         "       -m|--max_length     INT   the maximum length (MB) allowed for one read sequence [default:50 (MB)]\n"
@@ -77,6 +80,8 @@ static const struct option long_options[] =
     { "in_file", required_argument, NULL, 'i' },
     { "out_file", required_argument, NULL, 'o' },
     { "error_file", required_argument, NULL, 'e' },
+    { "max_reads", required_argument, NULL, 'x' },
+    { "phred_value", required_argument, NULL, 'P' },
     { "ratio", optional_argument, NULL, 'r' },
     { "max_length", optional_argument, NULL, 'm' },
     { "pair_check", optional_argument, NULL, 'p' },
@@ -91,20 +96,22 @@ arg_t *args_parse(int argc, char **argv)
     arg_t *args = calloc(1, sizeof(arg_t));
 
     /* set the default parameters */
-    args->ratio = 10;  // 10% of the original fastq file
+    args->compress_ratio = 10;  // 10% of the original fastq file
     args->max_length = 50 * 1024 * 1024; // 50 MB
     args->pair_check = 1;
     args->n_thread = 1;
 
-    if (argc < 7) show_usage();
-    while ( (opt = getopt_long(argc, argv, "i:o:e:r:m:p:t:h", long_options, NULL)) != -1 )
+    if (argc < 11) show_usage();
+    while ( (opt = getopt_long(argc, argv, "i:o:e:x:P:r:m:p:t:h", long_options, NULL)) != -1 )
     {
         switch (opt) {
             case 'h': args->help = 1; break;
             case 'i': args->in_file = x_strcopy(optarg); break;
             case 'o': args->out_file = x_strcopy(optarg); break;
             case 'e': args->error_file = x_strcopy(optarg); break;
-            case 'r': args->ratio = atoi(optarg); break;
+            case 'x': args->max_reads = strtoull(optarg, NULL, 10); break;
+            case 'P': args->phred_value = atoi(optarg); break;
+            case 'r': args->compress_ratio = atoi(optarg); break;
             case 'm': args->max_length = atoi(optarg)*1024*1024; break;
             case 'p': args->pair_check = atoi(optarg); break;
             case 't': args->n_thread = atoi(optarg); break;
@@ -122,8 +129,14 @@ arg_t *args_parse(int argc, char **argv)
         args->help = 1;
     }
 
+    /* the phred value only could be 33 or 64 */
+    if (args->phred_value != 33 && args->phred_value != 64) {
+        fprintf(stderr, "[SysError:args_parse:025] the phred_value parameter must be 33 or 64!\n");
+        args->help = 1;
+    }
+
     /* required parameters */
-    if (args->help||!args->in_file||!args->out_file||!args->error_file)
+    if (args->help||!args->in_file||!args->out_file||!args->error_file||!args->max_reads||!args->phred_value)
         show_usage();
 
     return args;
