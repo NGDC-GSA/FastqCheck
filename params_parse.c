@@ -27,9 +27,9 @@ static void show_usage(void)
         "       -t|--thread         INT   number of thread used when processing the fastq file [default:1]\n"
         "       -p|--pair_check     INT   check whether all reads have the same pair marker (1->check; 0->ignore) [default:1]\n\n";
 
-    fprintf(stderr, "Program: FastqCheck (v%s)\n", __FASTQ_CHECK_VERSION__);
-    fprintf(stderr, "CreateDate: %s\n", __FASTQ_CHECK_CREATE_DATE__);
-    fprintf(stderr, "UpdateDate: %s\n", __FASTQ_CHECK_UPDATE_DATE__);
+    fprintf(stderr, "Program: FastqCheck (v%s)\n", FASTQ_CHECK_VERSION_STRING);
+    fprintf(stderr, "CreateDate: %s\n", FASTQ_CHECK_CREATE_DATE);
+    fprintf(stderr, "UpdateDate: %s\n", FASTQ_CHECK_UPDATE_DATE);
     fprintf(stderr, "Author: XiaolongZhang (zhangxiaolong@big.ac.cn)\n\n");
     fprintf(stderr, "%s", usage);
     exit(-1);

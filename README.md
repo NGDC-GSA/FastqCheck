@@ -4,7 +4,7 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastq_check__<br>
-__VERSION: 2.0.0__<br>
+__VERSION: 2.0.1__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>

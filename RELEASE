@@ -277,4 +277,18 @@ Descrip:
     6. fastq_check.c: fix the data loss bug at the end of the file (the last partial batch was dropped by mistake)
     7. fastq_check.c: fix the deadlock bug caused by the task status mask (the batch was popped from the queue before all files of the batch were cached)
     8. fastq_check.c: fix the base count over-count bug in the multithread mode (the running cumulative sum was accumulated repeatedly)
-    
+
+
+===================== Version2.0.1 =====================
+Version: 2.0.1
+Date:    2026-08-15
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    remove the dead code of the file type checking (file_type.c/file_type.h), the file format
+    checking had already been merged into gz_stream_open
+    1. delete file_type.c/file_type.h: file_type_check() was no longer called anywhere in the project
+    2. makefile: remove file_type.o from the object list
+    3. fastq_check.c: remove the include of file_type.h
+    4. README.md: remove the file_type_check entries from the error code table and update the
+       FileError section (the truncated file error is now reported by file_truncate_error_handle)
