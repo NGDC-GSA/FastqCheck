@@ -818,8 +818,8 @@ static void *thread_duplicate_check(void *args)
         }
 
         /* show progress of the processing */
-        if (task->result->n_reads % 1000000 == 0)
-            fprintf(stdout, "[*] Processing number of reads: %lld ...\n", task->result->n_reads);
+        if (task->total_reads % 1000000 == 0)
+            fprintf(stdout, "[*] Processing number of reads: %lld ...\n", task->total_reads);
 
         /* pop out the finished task from task queue */
         kqueue_pop(thr_args->task_queue);
