@@ -20,6 +20,11 @@
 #define PATH_MAX 1024
 
 
+#ifndef kroundup32
+    #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#endif
+
+
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
 typedef struct __kstring_t {
@@ -29,26 +34,33 @@ typedef struct __kstring_t {
 #endif
 
 
+/*! @typedef stream_hd
+ @abstract stream operation callbacks bound to the underlying file handle
+ @field fp        opaque file handle of the stream (gzFile, BZFILE* or FILE*)
+ @field read      read callback, return the number of bytes read; 0: EOF; -1: error
+ @field write     write callback, return the number of bytes written; -1: error
+ @field close     close callback, return 0: normal; -1: error
+*/
+typedef struct stream_hd {
+    void *fp;
+    int (*read)(void *fp, char *buf, int size);
+    int (*write)(void *fp, const char *buf, int size);
+    int (*close)(void *fp);
+} stream_hd;
+
+
 /*! @typedef GzStream
- @abstract structure for gz/bz2 handle
- @field gz_fp        file handle of *.gz
- @field bz2_fp       file handle of *.bz2
- @field out_fp       file handle of output file
- @field bzerror      the error code of the bz2 file (BZ_OK: normal)
- @field buf          used to store decompressed data, whose size is 'GZ_BUFF_SIZE'
- @field begin, end   begin and end index of the decompressed data in the buf
- @field is_write     is_write:1 -> (for file write)'w', otherwise -> 'r' (for file read)
- @field is_eof       is_eof:1 -> the end of the file
+ @abstract structure for gz/bz2/plain text file stream
+ @field stream     the file handle and its read/write/close callbacks
+ @field buf        used to store decompressed data, whose size is 'GZ_BUFF_SIZE'
+ @field begin, end begin and end index of the decompressed data in the buf
+ @field is_eof     is_eof:1 -> the end of the file
 */
 typedef struct GzStream {
-    gzFile gz_fp;
-    BZFILE *bz2_fp;
-    FILE *out_fp;
-    int bzerror;
+    stream_hd stream;
     char *buf;
     int begin;
     int end;
-    int is_write;
     int is_eof;
 } GzStream;
 
@@ -78,9 +90,9 @@ GzStream *gz_stream_open(char *file, char *mode);
 /*! @function: read one line(until delimiter) from the compressed file
   @param  gz          GzStream object
   @param  delimiter   delimiter used to decide where to break, e.g. '\n'
-  @param  ks_str      kstring_t type of string (must be NULL for the first time)
+  @param  ks_str      kstring_t type of string (s must be NULL for the first time)
   @param  max_length  the maximum length allowed for one read sequence (default: 50MB)
-  @return             operation status: 0->EOF; 1->OK; -1:truncate
+  @return             operation status: 0->EOF; 1->OK; -1->truncated file; -2->line too long
  */
 int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length);
 
@@ -96,7 +108,7 @@ int gz_read_block(GzStream *gz);
   @param  gz          GzStream object
   @return             
  */
-void gz_stream_destory(GzStream *gz);
+void gz_stream_destroy(GzStream *gz);
 
 
 /*! @function: read fastq file list
