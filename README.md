@@ -4,17 +4,17 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastq_check__<br>
-__VERSION: 2.0.1__<br>
+__VERSION: 2.0.2__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
 __AUTHOR: xiaolong zhang__<br>
 __EMAIL: xiaolongzhang2015@163.com__<br>
 __DATE:   2022-07-25__<br>
-__UPDATE: 2026-07-30__<br>
+__UPDATE: 2026-08-16__<br>
 __DEPENDENCE__<br>
-* __GNU make and gcc__<br>
-* __zlib__<br>
+* __CMake (>= 3.16) and gcc/clang__<br>
+* __zlib-ng__ (bundled source tree, no system zlib required)<br>
 * __bzlib__<br>
 * __pthread__<br>
 
@@ -37,40 +37,56 @@ __DEPENDENCE__<br>
 
 ## 2.1 Dependencies
 
-Before building FastqCheck, ensure the following libraries are installed on your system:
+FastqCheck is built with **CMake** and a C99 compiler (gcc/clang). The libraries are:
 
-* **zlib** — required for gzip-compressed file I/O
-* **bzlib** — required for bzip2-compressed file I/O
+* **zlib-ng** — bundled as a local source tree (`zlibng/`) and compiled as a static library
+  in the zlib-compatible mode (`ZLIB_COMPAT`), which exports the classic zlib API
+  (`gzopen` / `gzread` / `gzwrite` / `gzclose` ...) with an unchanged `zlib.h`, so no system
+  zlib is required
+* **bzlib** — required for bzip2-compressed file I/O (system package, see below)
 * **pthread** — required for multi-threading support
+
+> On Linux, install the bzip2 development package first:
+>
+> ```bash
+> # Ubuntu / Debian
+> sudo apt install libbz2-dev
+> # RHEL / CentOS / Rocky
+> sudo yum install bzip2-devel
+> ```
 
 ## 2.2 Compilation
 
 ```bash
 cd FastqCheck
-make
+cmake -S . -B build       # configure (default: Release)
+cmake --build build -j    # build fastq_check
 ```
 
-The compiled binary `fastq_check` will be generated in the current directory.
+The compiled binary `fastq_check` will be generated in `build/`.
 
 ## 2.3 Build Options
 
-The makefile provides one configurable switch:
+CMake provides a `CMAKE_BUILD_TYPE` switch to select between release and debug builds:
 
-| Switch  | Default | Description                                                                        |
-|---------|---------|------------------------------------------------------------------------------------|
-| `DEBUG` | `0`     | `1`: compile with `-g -O0` for debugging;<br/> `0`: compile with `-O3` for release |
+| `CMAKE_BUILD_TYPE` | Default | Description                                                    |
+|--------------------|---------|----------------------------------------------------------------|
+| `Release`          | yes     | compile with `-O3` optimizations, for production use           |
+| `Debug`            | no      | compile with `-g -O0`, for debugging                           |
 
-To build a debug version:
+To build the debug version (e.g. in a separate `build-debug/` directory):
 
 ```bash
-# edit the makefile, set DEBUG = 1, then run:
-make
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug -j
 ```
 
 Clean build artifacts:
 
 ```bash
-make clean
+rm -rf build build-debug
+# or
+cmake --build build --target clean
 ```
 
 
