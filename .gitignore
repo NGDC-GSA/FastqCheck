@@ -1,4 +1,12 @@
-.idea/
 *.o
 fastq_check
 .DS_Store
+
+# ---- other application directories ----
+.vscode/
+.claude/
+.idea/
+
+# ---- out-of-source build directories ----
+/build/
+/build-debug/

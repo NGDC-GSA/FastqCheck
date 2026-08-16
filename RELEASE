@@ -279,6 +279,25 @@ Descrip:
     8. fastq_check.c: fix the base count over-count bug in the multithread mode (the running cumulative sum was accumulated repeatedly)
 
 
+===================== Version2.0.2 =====================
+Version: 2.0.2
+Date:    2026-08-16
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    migrate the build system from GNU make to CMake and replace the system zlib with a locally
+    built zlib-ng (zlib-compatible API) to speed up the gzip-compressed file I/O
+    1. add CMakeLists.txt: build with CMake (cmake -S . -B build && cmake --build build -j),
+       the CMAKE_BUILD_TYPE switch selects the release (-O3, default) or debug (-g -O0) build
+    2. add zlibng/: local zlib-ng source tree, compiled as a static library with ZLIB_COMPAT=ON,
+       which exports the classic zlib API (gzopen/gzread/gzwrite/gzclose/...) with an unchanged
+       zlib.h, so the existing gz I/O code compiles and links without any source changes
+    3. delete makefile: the old GNU make build is replaced by CMake
+    4. README.md: rewrite the Building section (CMake compilation, dependencies, and the
+       release/debug build options)
+    5. version.h: bump to 2.0.2 and update the date
+
+
 ===================== Version2.0.1 =====================
 Version: 2.0.1
 Date:    2026-08-15

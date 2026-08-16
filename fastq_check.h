@@ -24,11 +24,6 @@
 #define MAX_INVALID_BASE_RATIO 0.01  /* maximum ratio of Non-ATCGN in the sequence */
 
 
-#ifndef kroundup32
-    #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#endif
-
-
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
 /*! @typedef kstring_t
