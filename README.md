@@ -4,7 +4,7 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastq_check__<br>
-__VERSION: 2.0.2__<br>
+__VERSION: 2.0.3__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
@@ -15,7 +15,7 @@ __UPDATE: 2026-08-16__<br>
 __DEPENDENCE__<br>
 * __CMake (>= 3.16) and gcc/clang__<br>
 * __zlib-ng__ (bundled source tree, no system zlib required)<br>
-* __bzlib__<br>
+* __bzlib__ (bundled source tree, no system bzip2 required)<br>
 * __pthread__<br>
 
 
@@ -43,17 +43,10 @@ FastqCheck is built with **CMake** and a C99 compiler (gcc/clang). The libraries
   in the zlib-compatible mode (`ZLIB_COMPAT`), which exports the classic zlib API
   (`gzopen` / `gzread` / `gzwrite` / `gzclose` ...) with an unchanged `zlib.h`, so no system
   zlib is required
-* **bzlib** — required for bzip2-compressed file I/O (system package, see below)
+* **bzlib** — bundled as a local source tree (`bzip2/`) and compiled as a static library
+  (the `bz2_static` target), which exports the classic bzlib API (`BZ2_bzReadOpen` /
+  `BZ2_bzWriteOpen` ...), so no system bzip2 is required
 * **pthread** — required for multi-threading support
-
-> On Linux, install the bzip2 development package first:
->
-> ```bash
-> # Ubuntu / Debian
-> sudo apt install libbz2-dev
-> # RHEL / CentOS / Rocky
-> sudo yum install bzip2-devel
-> ```
 
 ## 2.2 Compilation
 

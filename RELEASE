@@ -298,6 +298,24 @@ Descrip:
     5. version.h: bump to 2.0.2 and update the date
 
 
+===================== Version2.0.3 =====================
+Version: 2.0.3
+Date:    2026-08-16
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    vendor the bzip2 source tree and build it as a static library, removing the system libbz2 dependency
+    1. add bzip2/: local bzip2 source tree, compiled as a static library (target bz2_static) via
+       add_subdirectory() with ENABLE_LIB_ONLY/ENABLE_STATIC_LIB=ON and
+       ENABLE_SHARED_LIB/ENABLE_TESTS/ENABLE_DOCS=OFF, so the bz2 file I/O
+       (BZ2_bzReadOpen/BZ2_bzWriteOpen/...) is statically linked into fastq_check
+    2. CMakeLists.txt: replace find_package(BZip2) with add_subdirectory(bzip2) and link the
+       bz2_static target; add the vendored bzip2/ include directory for <bzlib.h>
+    3. README.md: update the dependencies (bzlib is now a bundled static library, no system
+       bzip2-devel package required)
+    4. version.h: bump to 2.0.3 and update the date
+
+
 ===================== Version2.0.1 =====================
 Version: 2.0.1
 Date:    2026-08-15
