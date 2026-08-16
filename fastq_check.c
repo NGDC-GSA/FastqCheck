@@ -16,7 +16,6 @@
 #include "file_read.h"
 #include "params_parse.h"
 #include "fastq_check.h"
-#include "file_type.h"
 #include "threadpool.h"
 
 

@@ -14,10 +14,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <getopt.h>
-
-#define __FASTQ_CHECK_VERSION__ "2.0.0"
-#define __FASTQ_CHECK_CREATE_DATE__ "2022-07-25"
-#define __FASTQ_CHECK_UPDATE_DATE__ "2026-07-30"
+#include "version.h"
 
 
 /*! @typedef arg_t

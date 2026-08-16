@@ -4,7 +4,7 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastq_check__<br>
-__VERSION: 2.0.0__<br>
+__VERSION: 2.0.1__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
@@ -304,7 +304,7 @@ The output XML file follows the SRA submission statistics style. A typical outpu
 
 ## 5.4 Error Codes
 
-All errors and warnings are classified into three categories: **SysError** (system-level errors, e.g. memory or I/O failures, printed to the standard error), **FileError** (file-level errors, detected during the file type checking), and **FormatError** (fastq format violations). `XXX` in the messages denotes the actual value (file name, read name, etc.), and `[F(X):L(Y)]` denotes the file index and the line number where the error occurred.
+All errors and warnings are classified into three categories: **SysError** (system-level errors, e.g. memory or I/O failures, printed to the standard error), **FileError** (file-level errors, detected during the fastq file reading), and **FormatError** (fastq format violations). `XXX` in the messages denotes the actual value (file name, read name, etc.), and `[F(X):L(Y)]` denotes the file index and the line number where the error occurred.
 
 ### 5.4.1 SysError (system errors, 001 - 024)
 
@@ -314,7 +314,6 @@ All errors and warnings are classified into three categories: **SysError** (syst
 | `002` | `read_file_list`        | failed to open the file list of XXX!                                                             |
 | `003` | `gz_stream_open`        | operate mode(XXX) error, it should be "w" or "r".                                                |
 | `004` | `gz_stream_open`        | can not open bz2 file of (XXX)!                                                                  |
-| `005` | `file_type_check`       | failed to open gzip file of (XXX)!                                                               |
 | `010` | `gz_stream_open`        | failed to create file of (XXX) in .gz format!                                                    |
 | `011` | `gz_stream_open`        | failed to create file of (XXX)!                                                                  |
 | `012` | `gz_stream_open`        | failed to create file of (XXX) in .bz2 format!                                                   |
@@ -331,18 +330,11 @@ All errors and warnings are classified into three categories: **SysError** (syst
 | `023` | `read_name_check`       | much more items added than the preset value, therefore, the observed duplicated read name may be false positive! |
 | `024` | `read_name_check`       | it is NOT POSSIBLE to be here, contact the ADMINISTRATOR to check why!                           |
 
-### 5.4.2 FileError (file errors, 101 - 107)
+### 5.4.2 FileError (file errors)
 
-| Code | Origin              | Message                                                                                          |
-|------|---------------------|--------------------------------------------------------------------------------------------------|
-| `101` | `fastq_cache_read`  | unexpected end of fastq file XXX (truncated file) is detected!                                   |
-| `101` | `file_type_check`   | unexpected end of fastq file XXX (truncated file) is detected!                                   |
-| `102` | `file_type_check`   | unsupported file format (.X), only file type of (.gz) and (.bz2) is available (Err: XXX)!        |
-| `103` | `file_type_check`   | unsupported gzip file format of (.X.gz), please do not rename the original suffix of the filename (Err: XXX)! |
-| `104` | `file_type_check`   | the file format of XXX may be (.X.gz), please do not rename the original suffix of the filename! |
-| `105` | `file_type_check`   | unsupported bzip2 file format of (.X.bz2), please do not rename the original suffix of the filename (Err: XXX)! |
-| `106` | `file_type_check`   | the file format of XXX may be (.X.bz2), please do not rename the original suffix of the filename! |
-| `107` | `file_type_check`   | the file format of XXX may be (.X), please do not rename the original suffix of the filename!    |
+| Code | Origin                    | Message                                                                                         |
+|------|---------------------------|-------------------------------------------------------------------------------------------------|
+| `-`  | `file_truncate_error_handle` | truncated fastq file (FileXXX) detected!                                                    |
 
 ### 5.4.3 FormatError (fastq format errors, 201 - 212)
 
