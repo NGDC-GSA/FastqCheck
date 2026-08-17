@@ -22,7 +22,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "Build test binaries" FORCE)
 set(ZLIB_COMPAT ON CACHE BOOL "Compile with zlib compatible API" FORCE)
 set(WITH_GZFILEOP ON CACHE BOOL "Compile with support for gzFile related functions" FORCE)
-add_subdirectory(zlibng)          # target: zlib-ng::zlib
+add_subdirectory(external/zlibng) # target: zlib-ng::zlib
 
 # ---- bzip2: build the local source tree as a static library ---------------
 # Same idea as zlib-ng above: compile the vendored bzip2 from source so no
@@ -34,7 +34,7 @@ set(ENABLE_STATIC_LIB ON CACHE BOOL "Build libbz2 in static mode also" FORCE)
 set(ENABLE_SHARED_LIB OFF CACHE BOOL "Build libbz2 as a shared library" FORCE)
 set(ENABLE_TESTS OFF CACHE BOOL "Build/enable unit tests" FORCE)
 set(ENABLE_DOCS OFF CACHE BOOL "Generate documentation" FORCE)
-add_subdirectory(bzip2)          # target: bz2_static
+add_subdirectory(external/bzip2)  # target: bz2_static
 
 # ---- system libraries ------------------------------------------------------
 find_package(Threads REQUIRED)
@@ -55,5 +55,5 @@ target_link_libraries(fastq_check PRIVATE
     Threads::Threads)
 # bz2_static does not export include dirs, so point <bzlib.h> at the
 # vendored copy's public header.
-target_include_directories(fastq_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bzip2)
+target_include_directories(fastq_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/bzip2)
 target_compile_definitions(fastq_check PRIVATE _GNU_SOURCE)

@@ -328,3 +328,18 @@ Descrip:
     3. README.md: update the dependencies (bzlib is now a bundled static library, no system
        bzip2-devel package required)
     4. version.h: bump to 2.0.3 and update the date
+
+===================== Version2.0.4 =====================
+Version: 2.0.4
+Date:    2026-08-17
+Author:  xiaolong zhang
+Email:   zhangxiaolong@big.ac.cn
+Descrip:
+    reorganize the third-party libraries: move the zlibng/ and bzip2/ source trees into the
+    external/ directory for unified management, making the project structure clearer
+    1. move zlibng/ and bzip2/ into external/: both vendored source trees are now managed
+       uniformly under external/
+    2. CMakeLists.txt: update add_subdirectory() to external/zlibng and external/bzip2, and
+       point the <bzlib.h> include directory at external/bzip2
+    3. README.md: update the bundled library paths in the dependencies section
+    4. version.h: bump to 2.0.4 and update the date

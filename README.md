@@ -4,14 +4,14 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastq_check__<br>
-__VERSION: 2.0.3__<br>
+__VERSION: 2.0.4__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
 __AUTHOR: xiaolong zhang__<br>
 __EMAIL: xiaolongzhang2015@163.com__<br>
 __DATE:   2022-07-25__<br>
-__UPDATE: 2026-08-16__<br>
+__UPDATE: 2026-08-17__<br>
 __DEPENDENCE__<br>
 * __CMake (>= 3.16) and gcc/clang__<br>
 * __zlib-ng__ (bundled source tree, no system zlib required)<br>
@@ -37,13 +37,14 @@ __DEPENDENCE__<br>
 
 ## 2.1 Dependencies
 
-FastqCheck is built with **CMake** and a C99 compiler (gcc/clang). The libraries are:
+FastqCheck is built with **CMake** and a C99 compiler (gcc/clang). Both third-party
+libraries are managed uniformly in the `external/` directory. The libraries are:
 
-* **zlib-ng** — bundled as a local source tree (`zlibng/`) and compiled as a static library
+* **zlib-ng** — bundled as a local source tree (`external/zlibng/`) and compiled as a static library
   in the zlib-compatible mode (`ZLIB_COMPAT`), which exports the classic zlib API
   (`gzopen` / `gzread` / `gzwrite` / `gzclose` ...) with an unchanged `zlib.h`, so no system
   zlib is required
-* **bzlib** — bundled as a local source tree (`bzip2/`) and compiled as a static library
+* **bzlib** — bundled as a local source tree (`external/bzip2/`) and compiled as a static library
   (the `bz2_static` target), which exports the classic bzlib API (`BZ2_bzReadOpen` /
   `BZ2_bzWriteOpen` ...), so no system bzip2 is required
 * **pthread** — required for multi-threading support
