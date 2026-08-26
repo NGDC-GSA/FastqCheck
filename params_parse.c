@@ -11,8 +11,8 @@
 static void show_usage(void)
 {
     char *usage =
-        "Usage: fastq_check -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err> -x <max_reads> -P <phred_value>\n"
-        "Note: you MUST RUN fastq_type for file type checking before fastq_check!\n\n"
+        "Usage: fastqcheck -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err> -x <max_reads> -P <phred_value>\n"
+        "Note: you MUST RUN fastq_type for file type checking before fastqcheck!\n\n"
         "Options:\n"
         "       -h|--help                 print help information\n\n"
         "[Required]\n"

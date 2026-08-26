@@ -1,0 +1,103 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. 2.0.4 or v2.0.4'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    name: Build Linux amd64
+    runs-on: ubuntu-24.04
+    container: alpine:3.21
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Validate version format
+        id: version
+        run: |
+          ver="${{ inputs.version }}"
+          ver="${ver#v}"   # accept an optional 'v' prefix, normalize to 2.0.4
+          if ! echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::invalid version '${{ inputs.version }}', expected e.g. 2.0.4 or v2.0.4"
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Install build tools
+        run: apk add --no-cache build-base cmake git file
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build (release mode, fully static)
+        run: cmake -S . -B build -DCMAKE_EXE_LINKER_FLAGS="-static" && cmake --build build -j
+
+      - name: Verify static binary
+        run: file build/fastqcheck | grep -q 'statically linked'
+
+      - name: Rename binary
+        run: cp build/fastqcheck fastqcheck-linux-amd64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastqcheck-linux-amd64
+          path: fastqcheck-linux-amd64
+
+  release:
+    name: Create GitHub Release
+    needs: [build-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List binaries
+        run: ls -la dist/
+
+      - name: Write release notes (from RELEASE)
+        run: |
+          version="${{ needs.build-linux.outputs.version }}"
+          awk -v ver="$version" '
+            /^=+ Version/ {
+              if (match($0, "Version" ver " =")) { insec = 1; next }
+              if (insec) exit
+            }
+            insec { print }
+          ' RELEASE > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::Version $version not found in RELEASE, add the section before releasing"
+            exit 1
+          fi
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-linux.outputs.version }}
+          name: fastqcheck v${{ needs.build-linux.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*
+          prerelease: ${{ contains(needs.build-linux.outputs.version, 'alpha') || contains(needs.build-linux.outputs.version, 'beta') || contains(needs.build-linux.outputs.version, 'rc') }}
