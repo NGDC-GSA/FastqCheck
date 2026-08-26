@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  build-linux:
+  build-linux-amd64:
     name: Build Linux amd64
     runs-on: ubuntu-24.04
     container: alpine:3.21
@@ -41,7 +41,9 @@ jobs:
         run: cmake -S . -B build -DCMAKE_EXE_LINKER_FLAGS="-static" && cmake --build build -j
 
       - name: Verify static binary
-        run: file build/fastqcheck | grep -q 'statically linked'
+        run: |
+          file build/fastqcheck | grep -q 'statically linked'
+          file build/fastqcheck | grep -q 'x86-64'
 
       - name: Rename binary
         run: cp build/fastqcheck fastqcheck-linux-amd64
@@ -52,9 +54,41 @@ jobs:
           name: fastqcheck-linux-amd64
           path: fastqcheck-linux-amd64
 
+  build-linux-arm64:
+    name: Build Linux arm64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install zig toolchain
+        run: |
+          curl -fsSL -o zig.tar.xz https://ziglang.org/download/0.15.1/zig-x86_64-linux-0.15.1.tar.xz
+          tar -xf zig.tar.xz
+          printf '#!/bin/sh\nexec "$(dirname "$0")/zig-x86_64-linux-0.15.1/zig" cc -target aarch64-linux-musl "$@"\n' > zigcc
+          chmod +x zigcc
+
+      - name: Build (release mode, fully static)
+        run: cmake -S . -B build -DCMAKE_C_COMPILER="$PWD/zigcc" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_EXE_LINKER_FLAGS="-static" && cmake --build build -j
+
+      - name: Verify static binary
+        run: |
+          file build/fastqcheck | grep -q 'statically linked'
+          file build/fastqcheck | grep -q 'aarch64'
+
+      - name: Rename binary
+        run: cp build/fastqcheck fastqcheck-linux-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastqcheck-linux-arm64
+          path: fastqcheck-linux-arm64
+
   release:
     name: Create GitHub Release
-    needs: [build-linux]
+    needs: [build-linux-amd64, build-linux-arm64]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -74,7 +108,7 @@ jobs:
 
       - name: Write release notes (from RELEASE)
         run: |
-          version="${{ needs.build-linux.outputs.version }}"
+          version="${{ needs.build-linux-amd64.outputs.version }}"
           awk -v ver="$version" '
             /^=+ Version/ {
               if (match($0, "Version" ver " =")) { insec = 1; next }
@@ -87,17 +121,11 @@ jobs:
             exit 1
           fi
 
-      - name: Generate SHA-256 checksums
-        run: |
-          cd dist
-          sha256sum * > SHA256SUMS
-          cat SHA256SUMS
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.build-linux.outputs.version }}
-          name: fastqcheck v${{ needs.build-linux.outputs.version }}
+          tag_name: v${{ needs.build-linux-amd64.outputs.version }}
+          name: fastqcheck v${{ needs.build-linux-amd64.outputs.version }}
           body_path: release-notes.md
           files: dist/*
-          prerelease: ${{ contains(needs.build-linux.outputs.version, 'alpha') || contains(needs.build-linux.outputs.version, 'beta') || contains(needs.build-linux.outputs.version, 'rc') }}
+          prerelease: ${{ contains(needs.build-linux-amd64.outputs.version, 'alpha') || contains(needs.build-linux-amd64.outputs.version, 'beta') || contains(needs.build-linux-amd64.outputs.version, 'rc') }}

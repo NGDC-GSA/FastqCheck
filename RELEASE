@@ -351,7 +351,7 @@ Author:  xiaolong zhang
 Email:   zhangxiaolong@big.ac.cn
 Descrip:
     rename the executable to fastqcheck and add the GitHub Actions release workflow,
-    which builds a fully static (musl) amd64 binary and publishes it to GitHub Release
+    which builds fully static (musl) amd64 and (zig) arm64 binary and publishes it to GitHub Release
     1. CMakeLists.txt/README.md: rename the executable from fastq_check to fastqcheck
        (the compiled binary is now build/fastqcheck; the source files keep their
        original names fastq_check.c/fastq_check.h); rename the architecture image
