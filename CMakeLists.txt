@@ -2,7 +2,7 @@
 #
 # usage:
 #   cmake -S . -B build && cmake --build build -j
-#       configure + build fastq_check (default: Release)
+#       configure + build fastqcheck (default: Release)
 
 cmake_minimum_required(VERSION 3.16)
 project(FastqCheck C)
@@ -39,8 +39,8 @@ add_subdirectory(external/bzip2)  # target: bz2_static
 # ---- system libraries ------------------------------------------------------
 find_package(Threads REQUIRED)
 
-# ---- fastq_check -----------------------------------------------------------
-add_executable(fastq_check
+# ---- fastqcheck -----------------------------------------------------------
+add_executable(fastqcheck
     bloom_filter.c
     file_read.c
     kqueue.c
@@ -48,12 +48,12 @@ add_executable(fastq_check
     threadpool.c
     fastq_check.c)
 
-target_link_libraries(fastq_check PRIVATE
+target_link_libraries(fastqcheck PRIVATE
     zlib-ng::zlib
     bz2_static
     m
     Threads::Threads)
 # bz2_static does not export include dirs, so point <bzlib.h> at the
 # vendored copy's public header.
-target_include_directories(fastq_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/bzip2)
-target_compile_definitions(fastq_check PRIVATE _GNU_SOURCE)
+target_include_directories(fastqcheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/bzip2)
+target_compile_definitions(fastqcheck PRIVATE _GNU_SOURCE)

@@ -3,15 +3,15 @@ FastqCheck
 An efficient tool for FASTQ sequencing data format validation and quality statistics.
 
 
-__PROGRAM: fastq_check__<br>
-__VERSION: 2.0.4__<br>
+__PROGRAM: fastqcheck__<br>
+__VERSION: 2.0.5__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
 __AUTHOR: xiaolong zhang__<br>
 __EMAIL: xiaolongzhang2015@163.com__<br>
 __DATE:   2022-07-25__<br>
-__UPDATE: 2026-08-17__<br>
+__UPDATE: 2026-08-26__<br>
 __DEPENDENCE__<br>
 * __CMake (>= 3.16) and gcc/clang__<br>
 * __zlib-ng__ (bundled source tree, no system zlib required)<br>
@@ -54,10 +54,10 @@ libraries are managed uniformly in the `external/` directory. The libraries are:
 ```bash
 cd FastqCheck
 cmake -S . -B build       # configure (default: Release)
-cmake --build build -j    # build fastq_check
+cmake --build build -j    # build fastqcheck
 ```
 
-The compiled binary `fastq_check` will be generated in `build/`.
+The compiled binary `fastqcheck` will be generated in `build/`.
 
 ## 2.3 Build Options
 
@@ -88,11 +88,11 @@ cmake --build build --target clean
 # 3. Usage
 
 ```
-Usage: fastq_check -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err> -x <max_reads> -P <phred_value>
-Note: you MUST RUN fastq_type for file type checking before fastq_check!
+Usage: fastqcheck -i <fastq_list.txt> -o <output_file.xml> -e <error_file.err> -x <max_reads> -P <phred_value>
+Note: you MUST RUN fastq_type for file type checking before fastqcheck!
 ```
 
-**Prerequisites:** before running fastq_check, run `fastq_type` on the same file list. fastq_type verifies the file format (gzip/bzip2 magic code), detects truncated or renamed files, and estimates the values of `-x|--max_reads` and `-P|--phred_value` for fastq_check.
+**Prerequisites:** before running fastqcheck, run `fastq_type` on the same file list. fastq_type verifies the file format (gzip/bzip2 magic code), detects truncated or renamed files, and estimates the values of `-x|--max_reads` and `-P|--phred_value` for fastqcheck.
 
 
 ## 3.1 Options Summary
@@ -235,7 +235,7 @@ BloomMemory: 15 (GB)
 
 ```bash
 # sample_list.txt contains one, two, four files
-fastq_check -i sample_list.txt -o sample.xml -e sample.err -x 1000 -P 33
+fastqcheck -i sample_list.txt -o sample.xml -e sample.err -x 1000 -P 33
 ```
 
 ## 4.3 Multithreaded Checking
@@ -243,7 +243,7 @@ fastq_check -i sample_list.txt -o sample.xml -e sample.err -x 1000 -P 33
 Speed up the checking with 8 threads:
 
 ```bash
-fastq_check -i sample_list.txt -o sample.xml -e sample.err -x 1000 -P 33 -t 8
+fastqcheck -i sample_list.txt -o sample.xml -e sample.err -x 1000 -P 33 -t 8
 ```
 
 
@@ -367,7 +367,7 @@ All errors and warnings are classified into three categories: **SysError** (syst
 
 # 6. Architecture
 
-![fastq_check](images/fastq_check.png)
+![fastqcheck](images/fastqcheck.png)
 
 Since v2.0.0, the check flow is a **multithreading pipeline** of four stages:
 

@@ -213,17 +213,19 @@ static void strip_access_path(char *access_path)
 {
     /* find the last path marker '/' */
     char *r_marker = strrchr(access_path, '/');
-    if (r_marker == NULL) /* the access_path may be just a filename */
-        return ;
+    if (r_marker == NULL)
+        return;
 
-    *r_marker = '\0'; /* trim the real filename */
+    *r_marker = '\0';
 
-    /* strip the prefix before CRA number */
-    char *find = strstr(access_path, "/CRA");
-    if (find != NULL) {
-        size_t n = r_marker - find - 1;
-        strncpy(access_path, find+1, n);
-        access_path[n] = '\0';
+    /* find the last "/HRA<digit>" or "/CRA<digit>" */
+    for (char *p = r_marker; p > access_path; --p) {
+        if ((strncmp(p, "/HRA", 4) == 0 || strncmp(p, "/CRA", 4) == 0)
+            && isdigit((unsigned char)p[4])) {
+
+            memmove(access_path, p + 1, strlen(p + 1) + 1);
+            return;
+        }
     }
 }
 
