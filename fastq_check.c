@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <math.h>
 #include "bloom_filter.h"
 #include "file_read.h"
@@ -307,25 +308,25 @@ static statistic_t *calculate_result_summary(thread_args_t *args)
 static void write_result_summary(statistic_t *stat, message_t *msg)
 {
     /* basic statistics information */
-    fprintf(msg->out_fp, "<Run accession=\"%s\" read_length=\"%s\" spot_count=\"%lld\" base_count=\"%lld\">\n", stat->access_path, stat->length_status, stat->n_reads, stat->n_total_bases);
-    fprintf(msg->out_fp, "  <Size value=\"%lld\" units=\"bytes\"/>\n", stat->n_total_bytes);
-    fprintf(msg->out_fp, "  <Bases cs_native=\"false\" count=\"%lld\">\n", stat->n_total_bases);
-    fprintf(msg->out_fp, "    <Base value=\"A\" count=\"%lld\"/>\n", stat->n_bases_num[0]);
-    fprintf(msg->out_fp, "    <Base value=\"C\" count=\"%lld\"/>\n", stat->n_bases_num[1]);
-    fprintf(msg->out_fp, "    <Base value=\"G\" count=\"%lld\"/>\n", stat->n_bases_num[2]);
-    fprintf(msg->out_fp, "    <Base value=\"T\" count=\"%lld\"/>\n", stat->n_bases_num[3]);
-    fprintf(msg->out_fp, "    <Base value=\"N\" count=\"%lld\"/>\n", stat->n_bases_num[4]);
+    fprintf(msg->out_fp, "<Run accession=\"%s\" read_length=\"%s\" spot_count=\"%" PRIu64 "\" base_count=\"%" PRIu64 "\">\n", stat->access_path, stat->length_status, stat->n_reads, stat->n_total_bases);
+    fprintf(msg->out_fp, "  <Size value=\"%" PRIu64 "\" units=\"bytes\"/>\n", stat->n_total_bytes);
+    fprintf(msg->out_fp, "  <Bases cs_native=\"false\" count=\"%" PRIu64 "\">\n", stat->n_total_bases);
+    fprintf(msg->out_fp, "    <Base value=\"A\" count=\"%" PRIu64 "\"/>\n", stat->n_bases_num[0]);
+    fprintf(msg->out_fp, "    <Base value=\"C\" count=\"%" PRIu64 "\"/>\n", stat->n_bases_num[1]);
+    fprintf(msg->out_fp, "    <Base value=\"G\" count=\"%" PRIu64 "\"/>\n", stat->n_bases_num[2]);
+    fprintf(msg->out_fp, "    <Base value=\"T\" count=\"%" PRIu64 "\"/>\n", stat->n_bases_num[3]);
+    fprintf(msg->out_fp, "    <Base value=\"N\" count=\"%" PRIu64 "\"/>\n", stat->n_bases_num[4]);
     fprintf(msg->out_fp, "  </Bases>\n");
     fprintf(msg->out_fp, "  <GC-Content value=\"%.2f%%\"/>\n", stat->gc_content*100.0);
     fprintf(msg->out_fp, "  <AlignInfo>\n");
     fprintf(msg->out_fp, "  </AlignInfo>\n");
 
     /* part of statistics */
-    fprintf(msg->out_fp, "  <Statistics nreads=\"%lld\" nspots=\"%lld\">\n", stat->n_stat, stat->n_reads);
+    fprintf(msg->out_fp, "  <Statistics nreads=\"%" PRIu64 "\" nspots=\"%" PRIu64 "\">\n", stat->n_stat, stat->n_reads);
     for (int idx=0; idx < stat->n_stat; idx++) {
         stat_file_t *f_stat = &(stat->stat_obj[idx]);
         fprintf(msg->out_fp,
-            "    <Read index=\"%d\" count=\"%lld\" bases=\"%lld\" average=\"%d\" stdev=\"%.2f\"/>\n",
+            "    <Read index=\"%d\" count=\"%" PRIu64 "\" bases=\"%" PRIu64 "\" average=\"%d\" stdev=\"%.2f\"/>\n",
             idx, stat->n_reads, f_stat->n_bases, (int)f_stat->length_avg, f_stat->length_stdev);
     }
     fprintf(msg->out_fp, "  </Statistics>\n");
@@ -334,7 +335,7 @@ static void write_result_summary(statistic_t *stat, message_t *msg)
     /* quality distribution */
     for (int q=0; q < 256; q++) {
         if (stat->qual_table[q] == 0) continue;
-        fprintf(msg->out_fp, "<Quality value=\"%lld\" count=\"%lld\"/>\n", q - stat->phred, stat->qual_table[q]);
+        fprintf(msg->out_fp, "<Quality value=\"%" PRIu64 "\" count=\"%" PRIu64 "\"/>\n", q - stat->phred, stat->qual_table[q]);
     }
     fprintf(msg->out_fp, "  </QualityCount>\n");
 
@@ -343,8 +344,8 @@ static void write_result_summary(statistic_t *stat, message_t *msg)
     fprintf(msg->out_fp, "    <Database>\n");
     fprintf(msg->out_fp, "      <Table name=\"SEQUENCE\">\n");
     fprintf(msg->out_fp, "        <Statistics source=\"meta\">\n");
-    fprintf(msg->out_fp, "          <Rows count=\"%lld\"/>\n", stat->n_reads);
-    fprintf(msg->out_fp, "          <Elements count=\"%lld\"/>\n", stat->n_total_bases);
+    fprintf(msg->out_fp, "          <Rows count=\"%" PRIu64 "\"/>\n", stat->n_reads);
+    fprintf(msg->out_fp, "          <Elements count=\"%" PRIu64 "\"/>\n", stat->n_total_bases);
     fprintf(msg->out_fp, "        </Statistics>\n");
     fprintf(msg->out_fp, "      </Table>\n");
     fprintf(msg->out_fp, "    </Database>\n");
@@ -480,7 +481,7 @@ static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  
                 fprintf(msg->err_fp,
                         "[FormatError:fastq_reader_error_handle:202] the number of reads cached is different!\n");
                 fprintf(msg->err_fp,
-                        "[*] File1: %lu <--> File%d: %lu\n",
+                        "[*] File1: %zu <--> File%d: %zu\n",
                         task->cache->n, file_idx + 1, f_cache->n);
                 break;
 
@@ -489,7 +490,7 @@ static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  
                         "[FormatError:fastq_reader_error_handle:201] incomplete fastq read '%s' is detected!\n",
                         f_cache->reads[f_cache->n].name.s);
                 fprintf(msg->err_fp,
-                        "[*] File%d: the line number of the error read is %lld!\n",
+                        "[*] File%d: the line number of the error read is %" PRIu64 "!\n",
                         file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
                 break;
 
@@ -497,7 +498,7 @@ static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  
                 fprintf(msg->err_fp,
                         "[FormatError:fastq_reader_error_handle:212] failed to detect line breaks('\\n') in the READ!\n");
                 fprintf(msg->err_fp,
-                        "[*] File%d: the line number of the error read is %lld!\n",
+                        "[*] File%d: the line number of the error read is %" PRIu64 "!\n",
                         file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
                 break;
 
@@ -639,7 +640,7 @@ static void thread_fastq_check_core(void *args)
                 pthread_mutex_lock(&msg->err_lock);
                 fprintf(msg->err_fp,
                         "[FormatError:thread_fastq_check_core:208] "
-                        "[F(%d):L(%lld)] the format of the read '%s' is wrong (its pair_marker '%c' is different to others '%c')!\n",
+                        "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (its pair_marker '%c' is different to others '%c')!\n",
                         file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s, read_marker, pair_marker);
                 msg->pair_check = 0;
                 pthread_mutex_unlock(&msg->err_lock);
@@ -661,7 +662,7 @@ static void thread_fastq_check_core(void *args)
                     pthread_mutex_lock(&msg->err_lock);
                     fprintf(msg->err_fp,
                             "[FormatError:thread_fastq_check_core:209] "
-                            "[L(%lld)] the read name is not in the same order between two fastq file!\n",
+                            "[L(%" PRIu64 ")] the read name is not in the same order between two fastq file!\n",
                             (task->total_reads + read_idx) * 4 + 1);
                     fprintf(msg->err_fp,
                             "  [*] File1: '%s' <--> File%d: '%s'\n",
@@ -676,7 +677,7 @@ static void thread_fastq_check_core(void *args)
                 pthread_mutex_lock(&msg->err_lock);
                 fprintf(msg->err_fp,
                         "[FormatError:thread_fastq_check_core:207] "
-                        "[F(%d):L(%lld)] the format of the read '%s' is wrong (length of the sequence and quality is different)!\n",
+                        "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (length of the sequence and quality is different)!\n",
                         file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s);
                 msg->length_check = 0;
                 pthread_mutex_unlock(&msg->err_lock);
@@ -766,7 +767,7 @@ static void duplicate_error_process(thread_task_t *task, int32_t read_idx, int32
 
         fprintf(msg->err_fp,
                 "[FormatError:duplicate_error_process:210] "
-                "[F(1):L(%lld)] the number of duplicate read name is larger than %d (details in STANDOUT or Screen)!\n",
+                "[F(1):L(%" PRIu64 ")] the number of duplicate read name is larger than %d (details in STANDOUT or Screen)!\n",
                 (task->total_reads + read_idx) * 4 + 1, READ_NAME_DUPLICATE_MAX);
         fprintf(msg->err_fp,
                 "  [*] one of the duplicate read name: %s\n",
@@ -820,7 +821,7 @@ static void *thread_duplicate_check(void *args)
 
         /* show progress of the processing */
         if (task->total_reads % 1000000 == 0)
-            fprintf(stdout, "[*] Processing number of reads: %lld ...\n", task->total_reads);
+            fprintf(stdout, "[*] Processing number of reads: %" PRIu64 " ...\n", task->total_reads);
 
         /* pop out the finished task from task queue */
         kqueue_pop(thr_args->task_queue);

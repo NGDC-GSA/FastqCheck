@@ -229,6 +229,17 @@ typedef struct statistic_t {
 } statistic_t;
 
 
+#if defined(_WIN32) && !defined(localtime_r)
+/* mingw-w64 does not implement the POSIX localtime_r; provide it on top
+ * of the C11 localtime_s (thread-safe, returns 0 on success). */
+#include <time.h>
+struct tm *localtime_r(const time_t *timep, struct tm *result)
+{
+    return localtime_s(result, timep) == 0 ? result : NULL;
+}
+#endif
+
+
 /* safely malloc memory for type */
 #ifndef err_malloc
 #define err_malloc(_p, _n, _type) do {                                  \

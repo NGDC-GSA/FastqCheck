@@ -1,101 +1,217 @@
+# FastqCheck release workflow
+#
+# Manual trigger (Actions tab -> Release Build -> Run workflow):
+#   1. Build executables for Linux (amd64 + arm64), macOS (amd64 + arm64)
+#      and Windows (amd64 + arm64) in parallel
+#   2. Create a GitHub Release tagged with the version from version.h
+#      and attach the six binaries
+#
+# Release channels:
+#   - dev branch:   always creates a pre-release (for testing)
+#   - main branch:  creates a full release, unless the version contains
+#                   beta/rc/alpha (then it is still marked pre-release)
+#
+# Linux binaries are fully static (musl libc, linked with -static): no
+# glibc, no shared library at all (file/ldd reports "statically linked").
+# Both amd64 and arm64 build natively on Ubuntu runners with musl-gcc
+# (musl-tools): amd64 on ubuntu-24.04, arm64 on GitHub's native arm64
+# runner ubuntu-24.04-arm. Windows amd64/arm64 are cross-compiled with
+# the llvm-mingw (clang) toolchain.
+#
+# The vendored dependencies (zlib-ng / bzip2) are built statically by
+# CMake, so no system zlib/libbz2 is required.
+
 name: Release Build
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version, e.g. 2.0.4 or v2.0.4'
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 jobs:
-  build-linux-amd64:
-    name: Build Linux amd64
-    runs-on: ubuntu-24.04
-    container: alpine:3.21
+  build-linux:
+    name: Build Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    outputs:
-      version: ${{ steps.version.outputs.version }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            verify_arch: x86-64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            verify_arch: aarch64
+
     steps:
-      - name: Validate version format
-        id: version
-        run: |
-          ver="${{ inputs.version }}"
-          ver="${ver#v}"   # accept an optional 'v' prefix, normalize to 2.0.4
-          if ! echo "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::invalid version '${{ inputs.version }}', expected e.g. 2.0.4 or v2.0.4"
-            exit 1
-          fi
-          echo "version=$ver" >> "$GITHUB_OUTPUT"
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Install build tools
-        run: apk add --no-cache build-base cmake git file
-
-      - name: Checkout
-        uses: actions/checkout@v6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake musl-tools file
 
       - name: Build (release mode, fully static)
-        run: cmake -S . -B build -DCMAKE_EXE_LINKER_FLAGS="-static" && cmake --build build -j
-
-      - name: Verify static binary
         run: |
-          file build/fastqcheck | grep -q 'statically linked'
-          file build/fastqcheck | grep -q 'x86-64'
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=musl-gcc \
+            -DCMAKE_EXE_LINKER_FLAGS="-static"
+
+          cmake --build build -j"$(nproc)"
+
+      - name: Verify binary
+        run: |
+          file build/fastqcheck
+          file build/fastqcheck | grep -q "statically linked"
+          file build/fastqcheck | grep -q "${{ matrix.verify_arch }}"
 
       - name: Rename binary
-        run: cp build/fastqcheck fastqcheck-linux-amd64
+        run: cp build/fastqcheck fastqcheck-linux-${{ matrix.arch }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fastqcheck-linux-amd64
-          path: fastqcheck-linux-amd64
+          name: fastqcheck-linux-${{ matrix.arch }}
+          path: fastqcheck-linux-${{ matrix.arch }}
+          if-no-files-found: error
 
-  build-linux-arm64:
-    name: Build Linux arm64
+  build-macos:
+    name: Build macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-15-intel
+          - arch: arm64
+            runner: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build (release mode)
+        run: cmake -S . -B build && cmake --build build -j
+
+      - name: Rename binary
+        run: cp build/fastqcheck fastqcheck-macos-${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastqcheck-macos-${{ matrix.arch }}
+          path: fastqcheck-macos-${{ matrix.arch }}
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows ${{ matrix.arch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            target: x86_64-w64-mingw32
+            processor: x86_64
+          - arch: arm64
+            target: aarch64-w64-mingw32
+            processor: aarch64
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install zig toolchain
+      - name: Install build tools
         run: |
-          curl -fsSL -o zig.tar.xz https://ziglang.org/download/0.15.1/zig-x86_64-linux-0.15.1.tar.xz
-          tar -xf zig.tar.xz
-          printf '#!/bin/sh\nexec "$(dirname "$0")/zig-x86_64-linux-0.15.1/zig" cc -target aarch64-linux-musl "$@"\n' > zigcc
-          chmod +x zigcc
+          sudo apt-get update
+          sudo apt-get install -y cmake file curl xz-utils
 
-      - name: Build (release mode, fully static)
-        run: cmake -S . -B build -DCMAKE_C_COMPILER="$PWD/zigcc" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_EXE_LINKER_FLAGS="-static" && cmake --build build -j
-
-      - name: Verify static binary
+      - name: Install LLVM MinGW
         run: |
-          file build/fastqcheck | grep -q 'statically linked'
-          file build/fastqcheck | grep -q 'aarch64'
+          LLVM_MINGW_VERSION=20250826
+          LLVM_MINGW_DIR="llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64"
+
+          curl -fsSL -o llvm-mingw.tar.xz \
+            "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_DIR}.tar.xz"
+
+          tar -xJf llvm-mingw.tar.xz
+          echo "$PWD/${LLVM_MINGW_DIR}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain
+        run: |
+          ${{ matrix.target }}-clang --version
+
+      - name: Build
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.processor }} \
+            -DCMAKE_C_COMPILER=${{ matrix.target }}-clang \
+            -DCMAKE_C_FLAGS="-Dfsync=_commit" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static"
+
+          cmake --build build -j"$(nproc)"
+
+      - name: Verify binary
+        run: |
+          file build/fastqcheck.exe
+          file build/fastqcheck.exe | grep -q "PE32+"
+
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            file build/fastqcheck.exe | grep -qi "x86-64"
+          else
+            file build/fastqcheck.exe | grep -qi "aarch64"
+          fi
 
       - name: Rename binary
-        run: cp build/fastqcheck fastqcheck-linux-arm64
+        run: cp build/fastqcheck.exe fastqcheck-windows-${{ matrix.arch }}.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fastqcheck-linux-arm64
-          path: fastqcheck-linux-arm64
+          name: fastqcheck-windows-${{ matrix.arch }}
+          path: fastqcheck-windows-${{ matrix.arch }}.exe
+          if-no-files-found: error
 
-  release:
-    name: Create GitHub Release
-    needs: [build-linux-amd64, build-linux-arm64]
-    runs-on: ubuntu-latest
+  publish:
+    name: Publish Release
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+
     permissions:
       contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's/^#define FASTQ_CHECK_VERSION_STRING "\([^"]*\)".*/\1/p' version.h)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::FASTQ_CHECK_VERSION_STRING not found in version.h"
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Release version: ${VERSION}"
 
       - name: Download all binaries
         uses: actions/download-artifact@v4
@@ -106,26 +222,72 @@ jobs:
       - name: List binaries
         run: ls -la dist/
 
-      - name: Write release notes (from RELEASE)
+      - name: Generate release notes
+        shell: bash
         run: |
-          version="${{ needs.build-linux-amd64.outputs.version }}"
-          awk -v ver="$version" '
-            /^=+ Version/ {
-              if (match($0, "Version" ver " =")) { insec = 1; next }
-              if (insec) exit
+          VERSION="${{ steps.version.outputs.version }}"
+
+          awk -v ver="$VERSION" '
+            # match the "===================== Version2.0.5 ====================="
+            $0 ~ "^=+[[:space:]]+Version" ver "([[:space:]]|$)" {
+              insec = 1
+              next
             }
-            insec { print }
-          ' RELEASE > release-notes.md
-          if [ ! -s release-notes.md ]; then
-            echo "::error::Version $version not found in RELEASE, add the section before releasing"
+            # stop at the next version separator (RELEASE is oldest-first)
+            insec && $0 ~ "^=+[[:space:]]+Version" {
+              exit
+            }
+            insec {
+              print
+            }
+          ' RELEASE > release-changelog.md
+
+          if [ ! -s release-changelog.md ]; then
+            echo "::error::Version ${VERSION} not found in RELEASE, add the section before releasing"
             exit 1
           fi
+
+          cat > release-notes.md <<EOF
+          $(cat release-changelog.md)
+
+          ---
+
+          ## Platform Builds
+          | Platform | Architecture | Binary | Build |
+          | --- | --- | --- | --- |
+          | Linux | amd64 | \`fastqcheck-linux-amd64\` | musl-gcc, fully static |
+          | Linux | arm64 | \`fastqcheck-linux-arm64\` | musl-gcc, fully static |
+          | macOS | amd64 (Intel) | \`fastqcheck-macos-amd64\` | Apple Clang, native |
+          | macOS | arm64 (Apple Silicon) | \`fastqcheck-macos-arm64\` | Apple Clang, native |
+          | Windows | amd64 | \`fastqcheck-windows-amd64.exe\` | LLVM MinGW |
+          | Windows | arm64 | \`fastqcheck-windows-arm64.exe\` | LLVM MinGW |
+          EOF
+
+          echo "Generated release notes:"
+          cat release-notes.md
+
+      - name: Determine prerelease
+        id: release_type
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PRERELEASE=false
+
+          if [ "$GITHUB_REF_NAME" != "main" ] \
+            || [[ "$VERSION" == *alpha* ]] \
+            || [[ "$VERSION" == *beta* ]] \
+            || [[ "$VERSION" == *rc* ]]; then
+            PRERELEASE=true
+          fi
+
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "Prerelease: ${PRERELEASE}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.build-linux-amd64.outputs.version }}
-          name: fastqcheck v${{ needs.build-linux-amd64.outputs.version }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: fastqcheck v${{ steps.version.outputs.version }}
           body_path: release-notes.md
           files: dist/*
-          prerelease: ${{ contains(needs.build-linux-amd64.outputs.version, 'alpha') || contains(needs.build-linux-amd64.outputs.version, 'beta') || contains(needs.build-linux-amd64.outputs.version, 'rc') }}
+          prerelease: ${{ steps.release_type.outputs.prerelease }}

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 
 static void CalcBloomFilterParam(const uint64_t n, const double p, uint64_t *pm, uint64_t *pk)
@@ -55,7 +56,7 @@ BaseBloomFilter *InitBloomFilter(uint64_t dwMaxItems, double dProbFalse)
         return NULL;
     }
 
-    fprintf(stdout, "[*] BloomFilter initialization (n_item=%llu, false_positive=%.2e, n_bit=%llu, n_func=%llu, memory=%.2fMB)\n",
+    fprintf(stdout, "[*] BloomFilter initialization (n_item=%" PRIu64 ", false_positive=%.2e, n_bit=%" PRIu64 ", n_func=%" PRIu64 ", memory=%.2fMB)\n",
             pstBloomfilter->dwMaxItems, pstBloomfilter->dProbFalse, pstBloomfilter->dwFilterBits,
             pstBloomfilter->dwHashFuncs, (double)pstBloomfilter->dwFilterSize / 1024 / 1024);
 
