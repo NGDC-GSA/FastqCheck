@@ -344,26 +344,20 @@ Descrip:
     3. README.md: update the bundled library paths in the dependencies section
     4. version.h: bump to 2.0.4 and update the date
 
-===================== Version2.0.5 =====================
-Version: 2.0.5
-Date:    2026-08-26
-Author:  xiaolong zhang
-Email:   zhangxiaolong@big.ac.cn
-Descrip:
-    rename the executable to fastqcheck and add the GitHub Actions release workflow,
-    which builds fully static (musl) amd64 and (zig) arm64 binary and publishes it to GitHub Release
-    1. CMakeLists.txt/README.md: rename the executable from fastq_check to fastqcheck
-       (the compiled binary is now build/fastqcheck; the source files keep their
-       original names fastq_check.c/fastq_check.h); rename the architecture image
-       images/fastq_check.png to images/fastqcheck.png
-    2. fastq_check.c/strip_access_path(): support the HRA accession (/HRA<digit>) in
-       addition to CRA, and rewrite the prefix-stripping logic to scan backward from the
-       file name for the last /HRA<digit> or /CRA<digit> marker, replacing the
-       unsafe strncpy with memmove
-    3. add .github/workflows/release.yml: manual workflow_dispatch release, input the
-       version (e.g. 2.0.5 or v2.0.5), the tag v<version> and the GitHub Release are
-       created automatically; the binary is built fully static (musl) in the
-       alpine:3.21 container and published with SHA256SUMS; the release notes are
-       extracted from the corresponding Version section of this RELEASE file, so the
-       workflow itself needs no change for each release
-    4. version.h/README.md: bump to 2.0.5 and update the date
+===================== Version2.0.5 (2026-08-26) =====================
+### Features
+- CMakeLists.txt/README.md: rename the executable from fastq_check to fastqcheck
+  (the compiled binary is now build/fastqcheck; the source files keep their
+  original names fastq_check.c/fastq_check.h); rename the architecture image
+  images/fastq_check.png to images/fastqcheck.png
+- fastq_check.c/strip_access_path(): support the HRA accession (/HRA<digit>) in
+  addition to CRA, and rewrite the prefix-stripping logic to scan backward from the
+  file name for the last /HRA<digit> or /CRA<digit> marker, replacing the
+  unsafe strncpy with memmove
+- add .github/workflows/release.yml: manual workflow_dispatch release, input the
+  version (e.g. 2.0.5 or v2.0.5), the tag v<version> and the GitHub Release are
+  created automatically; the binary is built fully static (musl) in the
+  alpine:3.21 container and published with SHA256SUMS; the release notes are
+  extracted from the corresponding Version section of this RELEASE file, so the
+  workflow itself needs no change for each release
+- version.h/README.md: bump to 2.0.5 and update the date
