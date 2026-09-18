@@ -328,7 +328,7 @@ int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length
                 return -2;
             }
             if (ks_str->m < len + n_bytes + 1) {  /* grow the user-provided ks_str */
-                ks_str->m = ks_str->m ? len + n_bytes + 4 : 512;
+                ks_str->m = len + n_bytes + 4;
                 kroundup32(ks_str->m);
                 ks_str->s = (char *)realloc(ks_str->s, ks_str->m * sizeof(char));
                 if (!ks_str->s) {

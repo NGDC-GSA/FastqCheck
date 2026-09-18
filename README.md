@@ -4,14 +4,14 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastqcheck__<br>
-__VERSION: 2.0.5__<br>
+__VERSION: 2.0.6__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
 __AUTHOR: xiaolong zhang__<br>
 __EMAIL: xiaolongzhang2015@163.com__<br>
 __DATE:   2022-07-25__<br>
-__UPDATE: 2026-08-26__<br>
+__UPDATE: 2026-09-18__<br>
 __DEPENDENCE__<br>
 * __CMake (>= 3.16) and gcc/clang__<br>
 * __zlib-ng__ (bundled source tree, no system zlib required)<br>

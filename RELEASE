@@ -361,3 +361,26 @@ Descrip:
   extracted from the corresponding Version section of this RELEASE file, so the
   workflow itself needs no change for each release
 - version.h/README.md: bump to 2.0.5 and update the date
+
+===================== Version2.0.6 (2026-09-18) =====================
+### Fix
+- file_read.c/gz_read_util(): fix the heap buffer overflow (segfault) that occurred
+  when one line did not fit into the first allocated buffer, e.g. a read longer than
+  512 bp. The grow branch is only taken while ks_str->m is still 0, i.e. the first
+  allocation of a kstring; the old code then set the capacity to a fixed 512 bytes
+  instead of the needed size (len + n_bytes + 4), so any first chunk longer than 512
+  bytes was memcpy'd past the end of the 512-byte heap buffer. Since a kstring is
+  allocated on its first use and then reused for every following read, the damage was
+  intermittent and could easily be missed: the checker either crashed, or silently
+  reported wrong statistics (a false "the number of invalid bases (not 'ACGTN') ...
+  exceeds 0.010" error together with garbage quality and read-length values).
+  The capacity is now always derived from the size actually required, so reads of any
+  length allowed by -m/--max_length are read correctly
+- .github/workflows/release.yml: rebuild the release workflow for 6-architecture
+  builds (Linux/macOS/Windows x amd64/arm64); the version is no longer typed in by
+  hand but read from version.h, and non-main branches or alpha/beta/rc versions are
+  published as pre-release
+- fastq_check.c/bloom_filter.c: print 64-bit counts with the PRIu64/%zu specifiers
+  (the %llu/%ld forms were wrong on Windows); fastq_check.h: add a localtime_r shim
+  for mingw-w64; CMakeLists.txt: silence the vendored bzip2 build warnings
+- version.h/README.md: bump to 2.0.6 and update the date
