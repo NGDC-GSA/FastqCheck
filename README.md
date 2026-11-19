@@ -24,7 +24,7 @@ __DEPENDENCE__<br>
 
 * FastqCheck is a fast and reliable tool for validating the format of raw genomic FASTQ sequencing data and generating quality statistics.<br>
 * It accepts plain (`.fq` / `.fastq`), gzip-compressed (`.fq.gz` / `.fastq.gz`) and bzip2-compressed (`.fq.bz2` / `.fastq.bz2`) FASTQ files, and supports **single-end** (1 file), **paired-end** (2 files) and **single-cell** (4 files) data of one sample in a single run.
-* It performs **format checking** — phred quality values (33/64), pair markers (`'1'` / `'2'`), read name ordering between files, sequence/quality length consistency, invalid base ratio, and truncated file detection.
+* It performs **format checking** — phred quality values (33/64), pair markers (`'1'` / `'2'`), read name ordering between files, sequence/quality length consistency, invalid bases, and truncated file detection.
 * It performs **quality statistics** — base composition (A/C/G/T/N), GC content, read length distribution, per-file statistics and quality score distribution.
 * It checks **duplicate read names** with a Bloom filter (false positive rate as low as `1e-9`), so the memory usage stays tiny even for hundreds of millions of reads.
 * Since v2.0.0, the check flow is redesigned as a **multithreading pipeline** (reader thread + reader threadpool + checker threadpool + duplicate-check thread, see [Architecture](#6-architecture)), which significantly speeds up the checking of large-scale data on multi-core machines.
@@ -112,7 +112,7 @@ Note: you MUST RUN fastq_type for file type checking before fastqcheck!
 | Option            | Argument | Description                                                                  |
 |-------------------|----------|------------------------------------------------------------------------------|
 | `-r`, `--ratio`   | INT      | the estimated compression ratio of the fastq file [default: 10]              |
-| `-m`, `--max_length` | INT    | the maximum length (MB) allowed for one read sequence [default: 50 (MB)]     |
+| `-m`, `--max_length` | INT    | the length limit (MiB) for each FASTQ line [default: 50 MiB]     |
 | `-t`, `--thread`  | INT      | number of thread used when processing the fastq file [default: 1]            |
 | `-p`, `--pair_check` | INT    | check whether all reads have the same pair marker (1->check; 0->ignore) [default: 1] |
 
@@ -152,7 +152,9 @@ The path of the output statistics file in XML format (see [5.3 Output XML](#53-o
 
 #### \[-e \| --error_file]
 
-The path of the text file receiving all file errors and format errors (one `[FileError]` / `[FormatError]` entry per line, see [5.4 Error Codes](#54-error-codes); `[SysError]` messages are printed to the standard error instead). No output is written to this file when the checked data is completely normal.
+The path of the text report for file errors, format errors and the Bloom filter capacity diagnostic (`SysError` code `023`). See [5.4 Error Codes](#54-error-codes). Each diagnostic starts with its error tag and may include additional detail lines. A completed check can return exit status 0 and still report input errors in this file.
+
+If a read error or record count mismatch stops processing, the XML summarizes the batches submitted before the error. Reports from a check that found no issues are empty.
 
 **Example:**
 ```
@@ -188,9 +190,9 @@ The estimated compression ratio of the fastq file (e.g. `10` means the compresse
 
 #### \[-m \| --max_length]
 
-The maximum length (in MB) allowed for one read sequence. A read whose sequence length exceeds this value is treated as a malformed read.
+The length limit in MiB for each of the four FASTQ lines. A line must contain fewer than this many bytes before its newline. Reaching the limit triggers diagnostics `014` and `212`.
 
-**Default:** `50` (MB)
+**Default:** `50` MiB
 
 ---
 
@@ -314,55 +316,57 @@ The output XML file follows the SRA submission statistics style. A typical outpu
 
 ## 5.4 Error Codes
 
-All errors and warnings are classified into three categories: **SysError** (system-level errors, e.g. memory or I/O failures, printed to the standard error), **FileError** (file-level errors, detected during the fastq file reading), and **FormatError** (fastq format violations). `XXX` in the messages denotes the actual value (file name, read name, etc.), and `[F(X):L(Y)]` denotes the file index and the line number where the error occurred.
+Each numbered diagnostic starts with `[Category:origin:code]`. Use the full tag when looking up an error, since several system errors share a number. In locations such as `[F(2):L(7)]`, files are numbered from 1 in input-list order and lines from 1 within each file.
 
-### 5.4.1 SysError (system errors, 001 - 024)
+File and format diagnostics go to the report specified by `-e`. System diagnostics go to standard error (`stderr`) except for `023`, which goes to the report. Memory allocation, queue and Bloom filter helpers can also print unnumbered diagnostics to `stderr`.
 
-| Code | Origin                  | Message                                                                                          |
-|------|-------------------------|--------------------------------------------------------------------------------------------------|
-| `001` | `file_name_copy`        | failed to malloc memory when copy file name XXX!                                                |
-| `002` | `read_file_list`        | failed to open the file list of XXX!                                                             |
-| `003` | `gz_stream_open`        | operate mode(XXX) error, it should be "w" or "r".                                                |
-| `004` | `gz_stream_open`        | can not open bz2 file of (XXX)!                                                                  |
-| `010` | `gz_stream_open`        | failed to create file of (XXX) in .gz format!                                                    |
-| `011` | `gz_stream_open`        | failed to create file of (XXX)!                                                                  |
-| `012` | `gz_stream_open`        | failed to create file of (XXX) in .bz2 format!                                                   |
-| `013` | `gz_stream_open`        | failed to create a normal file of (XXX)!                                                         |
-| `014` | `gz_read_util`          | read length can not be longer than 1048576!                                                      |
-| `015` | `gz_read_util`          | failed to reallocated memory!                                                                    |
-| `016` | `x_strcopy`             | failed to malloc memory for string XXX!                                                          |
-| `017` | `args_parse`            | failed to parse the parameter of XXX!                                                            |
-| `018` | `args_parse`            | the pair_check parameter must be 0 or 1!                                                         |
-| `019` | `get_file_size`         | faild to read the given file XXX                                                                 |
-| `020` | `check_message_init`    | failed to create error file of (XXX)!                                                            |
-| `021` | `check_message_init`    | failed to create output file of (XXX)!                                                           |
-| `022` | `fastq_statistics_process` | failed to allocated memory when resize lengths array!                                        |
-| `023` | `read_name_check`       | much more items added than the preset value, therefore, the observed duplicated read name may be false positive! |
-| `024` | `read_name_check`       | it is NOT POSSIBLE to be here, contact the ADMINISTRATOR to check why!                           |
+### 5.4.1 SysError (system errors, 001 - 025)
 
-### 5.4.2 FileError (file errors)
+| Code | Origin in tag | Trigger and location |
+|------|---------------|----------------------|
+| `001` | `file_name_copy` | Memory allocation failed while copying an input file name. |
+| `002` | `get_file_number`, `read_file_list` | The input list could not be opened when counting or loading its entries. |
+| `003` | `gz_stream_open` | The stream was opened with an unsupported mode. |
+| `004` | `bz2_handle_open` | The underlying bzip2 file could not be opened. |
+| `006` | `bz2_handle_open` | The file opened, but the bzip2 stream could not be initialized. |
+| `008` | `gz_stream_open` | A gzip input file could not be opened. |
+| `010` | `gz_stream_open` | A gzip file could not be opened for writing. |
+| `013` | `gz_stream_open` | A plain file could not be opened for writing. |
+| `014` | `gz_read_util` | A FASTQ line reached or exceeded the byte limit set by `-m`. The reader also writes `212` to the report. |
+| `015` | `gz_read_util` | Memory allocation failed while growing the line buffer. |
+| `016` | `gz_stream_open` | A plain input file could not be opened. |
+| `016` | `x_strcopy` | Memory allocation failed while copying a command-line argument. |
+| `018` | `args_parse` | The parsed pair-check value is outside the allowed values (0 and 1). |
+| `020` | `check_message_init` | The error report could not be opened for writing. |
+| `020` | `fastq_cache_init` | Memory allocation failed for the array of per-file caches. |
+| `021` | `check_message_init` | The XML output could not be opened for writing. |
+| `021` | `fastq_cache_init` | Memory allocation failed for a file's read cache. |
+| `022` | `bloomfilter_size_init` | The Bloom filter could not be initialized. |
+| `023` | `duplicate_error_process` | The number of new entries added to the Bloom filter exceeded its configured capacity. The report suggests increasing `-r`. |
+| `025` | `args_parse` | The parsed Phred offset is neither 33 nor 64. |
 
-| Code | Origin                    | Message                                                                                         |
-|------|---------------------------|-------------------------------------------------------------------------------------------------|
-| `-`  | `file_truncate_error_handle` | truncated fastq file (FileXXX) detected!                                                    |
+### 5.4.2 FileError (file errors, 101)
 
-### 5.4.3 FormatError (fastq format errors, 201 - 212)
+| Code | Origin in tag | Trigger and location |
+|------|---------------|----------------------|
+| `101` | `file_truncate_error_handle` | Reading or decompressing an input stream failed. The truncation check writes the affected file number to the error report. |
 
-| Code | Origin                  | Message                                                                                          |
-|------|-------------------------|--------------------------------------------------------------------------------------------------|
-| `201` | `fastq_cache_read`      | incomplete fastq read 'XXX' is detected!                                                         |
-| `202` | `fastq_cache_read`      | the number of reads cached is different!                                                         |
-| `203` | `windows_break_check`   | windows break ('\r\n') is detected in the fastq file!                                            |
-| `204` | `phred_check`           | the phred value of the given files is different!                                                 |
-| `205` | `fastq_statistics_process` | the pair marker of FileXXX should be XXX instead of XXX!                                      |
-| `206` | `fastq_statistics_process` | [F(XXX):L(XXX)] the format of the read 'XXX' is wrong (read name not start with '@' or comment not start with '+')! |
-| `207` | `fastq_statistics_process` | [F(XXX):L(XXX)] the format of the read 'XXX' is wrong (length of the sequence and quality is different)! |
-| `208` | `fastq_statistics_process` | [F(XXX):L(XXX)] the format of the read 'XXX' is wrong (its pair_marker 'XXX' is different to others 'XXX')! |
-| `209` | `read_name_check`       | [L(XXX)] the read name is not in the same order between two fastq file!                          |
-| `210` | `read_name_check`       | the number of duplicate read name is larger than XXX (details in STANDOUT or Screen)!            |
-| `211` | `calculate_result_summary` | the number of invalid bases (not 'ACGTN') in FileXXX exceeds 0.01!                           |
-| `212` | `fastq_cache_read`      | failed to detect line breaks('\n') in the READ!                                                  |
+### 5.4.3 FormatError (FASTQ format errors, 201 - 212)
 
+| Code | Origin in tag | Trigger and location |
+|------|---------------|----------------------|
+| `201` | `fastq_reader_error_handle` | EOF interrupted a four-line record, including a final line missing its newline. The location is the start of the record. |
+| `202` | `fastq_reader_error_handle` | Files yielded different numbers of complete records in the batch. Each detail line compares File1 with a differing file. This check also runs with `-p 0`. |
+| `205` | `thread_fastq_check_core` | With pair checking enabled, the first read's pair marker in this batch differs from the expected marker for its file position. |
+| `206` | `fastq_reader_error_handle` | A complete record has a name line missing its initial `@` or a separator line missing its initial `+`. The location identifies the offending line. |
+| `207` | `thread_fastq_check_core` | A read's sequence and quality lines differ in length. The location is the start of the record. |
+| `208` | `thread_fastq_check_core` | With pair checking enabled, a read's pair marker differs from the first marker in the same file and batch. |
+| `209` | `thread_fastq_check_core` | The trimmed read names at the same record position differ between File1 and another file. The report shows the line and both names. |
+| `210` | `duplicate_error_process` | The Bloom filter flagged a possible duplicate read name in File1. Reporting starts at the 1,000th such match and includes the line and name for each subsequent match. |
+| `211` | `calculate_result_summary_core` | A file contains at least one sequence base outside A, C, G, T and N (case-insensitive). The message displays `0.010`, but the implementation flags any invalid base in the submitted batches. |
+| `212` | `fastq_reader_error_handle` | A line reached or exceeded the `-m` limit. The report gives the start of the record, and `014` on `stderr` gives the limit in bytes. |
+
+A read error or a record count mismatch stops batch submission. The XML then includes only previously submitted batches. The reader reports format errors for each affected file and compares record counts only when every file finished the batch without a read error. Diagnostics from the checker, duplicate check and XML summarization allow processing to continue.
 
 
 # 6. Architecture
