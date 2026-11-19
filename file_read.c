@@ -132,42 +132,90 @@ static int gz_close(void *fp)
  * bz2_close callback can call the right close function */
 typedef struct bz2_stream {
     BZFILE *fp;
+    FILE *file;  /* BZ2_bzReadClose and BZ2_bzWriteClose leave this open */
+    int segment_done;  /* BZ_STREAM_END received for the current decoder */
     int is_write;  /* 1: opened for writing; 0: opened for reading */
 } bz2_stream;
 
-static void *bz2_handle_open(FILE *raw_fp, char *mode, char *err_fn)
+
+static void *bz2_handle_open(char *file, const char *mode, const char *err_fn)
 {
     int bzerror;
     bz2_stream *bz = calloc(1, sizeof(bz2_stream));
+    bz->is_write = mode[0] == 'w';
 
-    if (mode[0] == 'r') {
-        bz->fp = BZ2_bzReadOpen(&bzerror, raw_fp, 0, 0, NULL, 0);
-        if (bzerror != BZ_OK) {
-            BZ2_bzReadClose(&bzerror, bz->fp);
-            fprintf(stderr, "[SysError:gz_stream_open:005] the file of (%s) does not seem to be a .bz2 file!\n", err_fn);
-            exit(0);
-        }
+    bz->file = fopen(file, bz->is_write ? "wb" : "rb");
+    if (!bz->file) {
+        fprintf(stderr, "[SysError:%s:004] failed to open bz2 file of (%s)!\n", __func__, err_fn);
+        exit(EXIT_FAILURE);
     }
-    else {
-        bz->is_write = 1;
-        bz->fp = BZ2_bzWriteOpen(&bzerror, raw_fp, 9, 0, 30);
-        if (bzerror != BZ_OK) {
-            BZ2_bzWriteClose(&bzerror, bz->fp, 0, NULL, NULL);
-            fprintf(stderr, "[SysError:gz_stream_open:012] failed to create file of (%s) in .bz2 format!\n", err_fn);
-            exit(0);
-        }
+
+    if (bz->is_write)
+        bz->fp = BZ2_bzWriteOpen(&bzerror, bz->file, 9, 0, 30);
+    else
+        bz->fp = BZ2_bzReadOpen(&bzerror, bz->file, 0, 0, NULL, 0);
+
+    if (bzerror != BZ_OK) {
+        fclose(bz->file);
+        free(bz);
+        fprintf(stderr, "[SysError:%s:006] failed to open the Gzip2 stream of %s!\n", __func__, err_fn);
+        exit(EXIT_FAILURE);
     }
     return bz;
 }
 
+
+/* continue on the same FILE: 1 for another segment, 0 for EOF, -1 on error. */
+static int bz2_next_segment(bz2_stream *bz)
+{
+    int bzerror, count;
+    void *lookahead;
+    unsigned char unused[BZ_MAX_UNUSED];
+
+    /* libbzip2 owns the lookahead buffer until we close this decoder. */
+    BZ2_bzReadGetUnused(&bzerror, bz->fp, &lookahead, &count);
+    if (bzerror != BZ_OK) return -1;
+    if (count > 0) memcpy(unused, lookahead, count);
+    BZ2_bzReadClose(&bzerror, bz->fp);
+    bz->fp = NULL;
+    if (bzerror != BZ_OK) return -1;
+
+    if (count == 0) {
+        int first = fgetc(bz->file);
+        if (first == EOF) return ferror(bz->file) ? -1 : 0;
+        unused[0] = (unsigned char)first;
+        count = 1;
+    }
+
+    /* open the next bzip segment and buffer the unused data before read new data */
+    bz->fp = BZ2_bzReadOpen(&bzerror, bz->file, 0, 0, unused, count);
+    if (bzerror != BZ_OK) return -1;
+    bz->segment_done = 0;
+    return 1;
+}
+
+
 static int bz2_read(void *fp, char *buf, int size)
 {
-    bz2_stream *bz = (bz2_stream *)fp;
     int bzerror;
-    int n = BZ2_bzRead(&bzerror, bz->fp, buf, size);
-    if (bzerror != BZ_OK && bzerror != BZ_STREAM_END) return -1;  /* truncated file detected */
-    return n;  /* n==0 at the end of the stream (EOF) */
+    bz2_stream *bz = (bz2_stream *)fp;
+
+    while (bz->fp) {
+        if (bz->segment_done) {
+            int status = bz2_next_segment(bz);
+            if (status <= 0) return status;
+        }
+
+        int n = BZ2_bzRead(&bzerror, bz->fp, buf, size);
+        if (bzerror == BZ_OK) return n;
+        if (bzerror != BZ_STREAM_END) return -1;
+
+        bz->segment_done = 1;
+        if (n > 0) return n;  /* deliver the final bytes before advancing */
+    }
+    return 0;
 }
+
 
 static int bz2_write(void *fp, const char *buf, int size)
 {
@@ -180,14 +228,17 @@ static int bz2_write(void *fp, const char *buf, int size)
 static int bz2_close(void *fp)
 {
     bz2_stream *bz = (bz2_stream *)fp;
-    int bzerror;
+    int bzerror = BZ_OK;
 
     if (bz->is_write)
         BZ2_bzWriteClose(&bzerror, bz->fp, 0, NULL, NULL);
-    else
+    else if (bz->fp)
         BZ2_bzReadClose(&bzerror, bz->fp);
+
+    int closed = fclose(bz->file);
     free(bz);
-    return bzerror == BZ_OK ? 0 : -1;
+
+    return bzerror == BZ_OK && closed == 0 ? 0 : -1;
 }
 
 /* ---------------- plain text backend ---------------- */
@@ -234,69 +285,42 @@ GzStream *gz_stream_open(char *file, char *mode)
 
     GzStream *gz = calloc(1, sizeof(GzStream));
     char *err_fn = get_path_basename(file);
-    if(mode[0]=='r') {
-        if(get_str_ends(file, ".bz2")){
-            unsigned char buf[4];
-            FILE *f=fopen(file, "rb");
-            if(f==NULL) {
-                fprintf(stderr, "[SysError:gz_stream_open:004] can not open bz2 file of (%s)!\n", err_fn);
-                exit(0);
-            }
-            fread(buf, 1, 4, f);  /* read the magic number of the bzip2 file */
-            fseek(f, 0, SEEK_SET);
-            if (buf[0]==0x42 && buf[1]==0x5a && buf[2]==0x68 || buf[0]=='@') {
-                gz->stream.fp = bz2_handle_open(f, "r", err_fn);
-                gz->stream.read = bz2_read;
-                gz->stream.close = bz2_close;
-            } else {
-                fclose(f);
-                fprintf(stderr, "[SysError:gz_stream_open:006] the file of (%s) is neither a real bzip2(.bz2) file nor a stander fastq file!\n", err_fn);
-                exit(0);
-            }
+
+    if (mode[0] == 'r') {
+        if (get_str_ends(file, ".bz2")) {
+            gz->stream.fp = bz2_handle_open(file, "r", err_fn);
+            gz->stream.read = bz2_read;
+            gz->stream.close = bz2_close;
         }
-        else{ /* open a .gz or a normal txt file for reading */
-            unsigned char buf[4];
-            FILE *f = fopen(file, "rb");
-            if (f==NULL) {
-                fprintf(stderr, "[SysError:gz_stream_open:007] failed to open file of (%s)!\n", err_fn);
-                exit(0);
-            }
-            fread(buf, 1, 4, f);  /* read the magic number of the gzip file */
-            fclose(f);  /* the FILE handle is used for magic number detection only */
-            if (buf[0]==0x1f && buf[1]==0x8b || buf[0]=='@') {
-                gz->stream.fp = gz_handle_open(file, "r", err_fn);
-                gz->stream.read = gz_read;
-                gz->stream.close = gz_close;
-            } else {
-                fprintf(stderr, "[SysError:gz_stream_open:009] the file of (%s) is neither a real gzip(.gz) file nor a stander fastq file!\n", err_fn);
-                exit(0);
-            }
+        else if (get_str_ends(file, ".gz")) {  /* open a gzip file for reading */
+            gz->stream.fp = gz_handle_open(file, "r", err_fn);
+            gz->stream.read = gz_read;
+            gz->stream.close = gz_close;
+        }
+        else {  /* normal (uncompressed) fastq file */
+            gz->stream.fp = plain_handle_open(file, "rb", err_fn);
+            gz->stream.read = plain_read;
+            gz->stream.close = plain_close;
         }
     }
     else {  /* open a gz or bz2 file for writing */
-        if(get_str_ends(file, ".gz")) {
+        if (get_str_ends(file, ".gz")) {
             gz->stream.fp = gz_handle_open(file, "w", err_fn);
             gz->stream.write = gz_write;
             gz->stream.close = gz_close;
         }
-        else if(get_str_ends(file, ".bz2")){
-            FILE *f=fopen(file, "w");
-            if(f==NULL){
-                fprintf(stderr, "[SysError:gz_stream_open:011] failed to create file of (%s)!\n", err_fn);
-                exit(0);
-            }
-            gz->stream.fp = bz2_handle_open(f, "w", err_fn);
+        else if (get_str_ends(file, ".bz2")){
+            gz->stream.fp = bz2_handle_open(file, "w", err_fn);
             gz->stream.write = bz2_write;
             gz->stream.close = bz2_close;
         }
-        else{
+        else {
             gz->stream.fp = plain_handle_open(file, "w", err_fn);
             gz->stream.write = plain_write;
             gz->stream.close = plain_close;
         }
     }
     gz->buf=calloc(GZ_BUFF_SIZE, sizeof(char));
-
     return gz;
 }
 
