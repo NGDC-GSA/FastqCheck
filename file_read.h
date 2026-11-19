@@ -87,14 +87,23 @@ typedef struct FileObject {
 GzStream *gz_stream_open(char *file, char *mode);
 
 
+typedef enum {
+    GZ_LINE_UNTERMINATED = -3,
+    GZ_LINE_TOO_LONG = -2,
+    GZ_LINE_STREAM_ERROR = -1,
+    GZ_LINE_EOF = 0,
+    GZ_LINE_OK = 1
+} gz_status_t;
+
+
 /*! @function: read one line(until delimiter) from the compressed file
   @param  gz          GzStream object
   @param  delimiter   delimiter used to decide where to break, e.g. '\n'
   @param  ks_str      kstring_t type of string (s must be NULL for the first time)
   @param  max_length  the maximum length allowed for one read sequence (default: 50MB)
-  @return             operation status: 0->EOF; 1->OK; -1->truncated file; -2->line too long
+  @return             line status; GZ_LINE_UNTERMINATED includes the partial line in ks_str
  */
-int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length);
+gz_status_t gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length);
 
 
 /*! @function: read total block of binary data into self-host buffer

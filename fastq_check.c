@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -109,47 +110,39 @@ static message_t *check_message_init(char *error_file, char *out_file)
 }
 
 
-/* read four line from the input fastq file */
-static int fastq_read_core(GzStream *gz, read_t *read, int max_length)
+typedef enum {
+    FASTQ_READ_BAD_SEPARATOR = -5,
+    FASTQ_READ_BAD_NAME = -4,
+    FASTQ_READ_LINE_TOO_LONG = -3,
+    FASTQ_READ_INCOMPLETE = -2,
+    FASTQ_READ_STREAM_ERROR = -1,
+    FASTQ_READ_EOF = 0,
+    FASTQ_READ_OK = 1
+} fastq_read_status_t;
+
+
+/* Read all four lines before validating the prefixes. */
+static fastq_read_status_t fastq_read_core(GzStream *gz, read_t *read, int max_length)
 {
-    int ret;  /* the normal return is: ret==1 */
+    kstring_t *lines[] = {&read->name, &read->seq, &read->comment, &read->qual};
 
-    ret = gz_read_util(gz, '\n', &read->name, max_length);  /* get the read name*/
-    switch (ret) {
-        case -2: return -3;  /* failed to detect line breaks('\n') */
-        case -1: return -1;  /* unexpected end of the file */
-        case  0: return 0;  /* end of the file or empty file */
-        default: break;  /* ret==1: normal reading the file */
+    for (size_t i = 0; i < 4; i++) {
+        switch (gz_read_util(gz, '\n', lines[i], max_length)) {
+            case GZ_LINE_OK: break;
+            case GZ_LINE_EOF: return i == 0 ? FASTQ_READ_EOF : FASTQ_READ_INCOMPLETE;
+            case GZ_LINE_UNTERMINATED: return FASTQ_READ_INCOMPLETE;
+            case GZ_LINE_TOO_LONG: return FASTQ_READ_LINE_TOO_LONG;
+            case GZ_LINE_STREAM_ERROR: return FASTQ_READ_STREAM_ERROR;
+        }
     }
 
-    ret = gz_read_util(gz, '\n', &read->seq, max_length);  /* get the read sequence */
-    switch (ret) {
-        case -2: return -3;  /* failed to detect line breaks('\n') */
-        case -1: return -1;  /* unexpected end of the file */
-        case  0: return -2;  /* incomplete fastq reads, since only one line is read */
-        default: break;  /* ret==1: normal reading the file */
-    }
+    if (read->name.s[0] != '@')
+        return FASTQ_READ_BAD_NAME;
 
-    ret = gz_read_util(gz, '\n', &read->comment, max_length); /* get the read comment, usually is '+' */
-    switch (ret) {
-        case -2: return -3;  /* failed to detect line breaks('\n') */
-        case -1: return -1;  /* unexpected end of the file */
-        case  0: return -2;  /* incomplete fastq reads, since only two lines are readed */
-        default: break;  /* ret==1: normal reading the file */
-    }
+    if (read->comment.s[0] != '+')
+        return FASTQ_READ_BAD_SEPARATOR;
 
-    ret = gz_read_util(gz, '\n', &read->qual, max_length); /* get the read quality */
-    switch (ret) {
-        case -2: return -3;  /* failed to detect line breaks('\n') */
-        case -1: return -1;  /* unexpected end of the file */
-        case  0: return -2;  /* incomplete fastq reads, since only three lines are readed */
-        default: break;  /* ret==1: normal reading the file */
-    }
-
-    if (read->name.s[0]=='@' && read->comment.s[0]=='+')
-        return ret;  /* means read status is OK */
-    
-    return -2; /* incomplete fastq reads */
+    return FASTQ_READ_OK;
 }
 
 
@@ -439,12 +432,7 @@ static void thread_fastq_reader_core(void *args)
 
     for (int32_t idx=0; idx < f_cache->n_max; idx++) {
         job->ret_value = fastq_read_core(file_hd, &f_cache->reads[idx], task->max_length);
-        if (job->ret_value != 1)
-            /*  0: end of the file (EOF)
-             * -1: unexpected end of fastq file
-             * -2: incomplete fastq read is detected
-             * -3: failed to detect line breaks ('\n')
-             */
+        if (job->ret_value != FASTQ_READ_OK)
             break;
 
         f_cache->n++;  /* normal reading of the fastq file */
@@ -459,58 +447,98 @@ static void thread_fastq_reader_core(void *args)
 }
 
 
-static int fastq_reader_error_process(reader_job_t *jobs, thread_task_t *task,  message_t *msg)
+static void report_format_error(const thread_task_t *task, int file_idx, fastq_read_status_t status)
 {
-    int32_t ret_code = 1;  /* 1: normal caching of reads */
-    int32_t n_file = task->n_file;
+    message_t *msg = task->msg_obj;
+    const cache_t *cache = &task->cache[file_idx];
+    const uint64_t line = (task->total_reads + cache->n) * 4 + 1;
+    const int file_no = file_idx + 1;
 
-    for (int file_idx=0; file_idx < n_file; file_idx++) {
-        reader_job_t *job = &jobs[file_idx];
-        cache_t *f_cache = &task->cache[file_idx];
+    pthread_mutex_lock(&msg->err_lock);
+    switch (status) {
+        case FASTQ_READ_INCOMPLETE: {
+            const kstring_t *name = &cache->reads[cache->n].name;
+            fprintf(msg->err_fp,
+                    "[FormatError:fastq_reader_error_handle:201] [F(%d):L(%" PRIu64 ")] incomplete fastq read '%s' is detected!\n",
+                    file_no, line, name->l ? name->s : "");
+            break;
+        }
+        case FASTQ_READ_BAD_NAME: {
+            fprintf(msg->err_fp,
+                    "[FormatError:fastq_reader_error_handle:206] [F(%d):L(%" PRIu64 ")] read name must start with '@'!\n",
+                    file_no, line);
+            break;
+        }
+        case FASTQ_READ_BAD_SEPARATOR: {
+            fprintf(msg->err_fp,
+                    "[FormatError:fastq_reader_error_handle:206] [F(%d):L(%" PRIu64 ")] separator line must start with '+'!\n",
+                    file_no, line + 2);
+            break;
+        }
+        case FASTQ_READ_LINE_TOO_LONG: {
+            fprintf(msg->err_fp,
+                    "[FormatError:fastq_reader_error_handle:212] failed to detect line breaks('\\n') in the READ!\n");
+            fprintf(msg->err_fp, "[*] File%d: the line number of the error read is %" PRIu64 "!\n",
+                    file_no, line);
+            break;
+        }
+        default:
+            break;
+    }
+    pthread_mutex_unlock(&msg->err_lock);
+}
 
-        if (job->ret_value == 1 && f_cache->n == task->cache->n)
+
+static bool report_read_errors(const reader_job_t *jobs, const thread_task_t *task)
+{
+    bool failed = false;
+
+    for (int file_idx = 0; file_idx < task->n_file; file_idx++) {
+        fastq_read_status_t status = jobs[file_idx].ret_value;
+        if (status >= FASTQ_READ_EOF)
+            continue;
+
+        failed = true;
+
+        /* Stream errors are reported during the truncation check. */
+        if (status != FASTQ_READ_STREAM_ERROR)
+            report_format_error(task, file_idx, status);
+    }
+    return failed;
+}
+
+
+static bool report_count_mismatches(const thread_task_t *task)
+{
+    message_t *msg = task->msg_obj;
+    const size_t first_count = task->cache[0].n;
+    bool mismatch = false;
+
+    for (int file_idx = 1; file_idx < task->n_file; file_idx++) {
+        const size_t count = task->cache[file_idx].n;
+        if (count == first_count)
             continue;
 
         pthread_mutex_lock(&msg->err_lock);
-        ret_code = -1;  /* -1: abnormal caching of reads */
-
-        switch (job->ret_value) {
-            case 0:  /* EOF of the file */
-                ret_code = f_cache->n > 0 ? 1 : 0;
-                break;
-
-            case 1:  /* cached different number of reads */
-                fprintf(msg->err_fp,
-                        "[FormatError:fastq_reader_error_handle:202] the number of reads cached is different!\n");
-                fprintf(msg->err_fp,
-                        "[*] File1: %zu <--> File%d: %zu\n",
-                        task->cache->n, file_idx + 1, f_cache->n);
-                break;
-
-            case -2:
-                fprintf(msg->err_fp,
-                        "[FormatError:fastq_reader_error_handle:201] incomplete fastq read '%s' is detected!\n",
-                        f_cache->reads[f_cache->n].name.s);
-                fprintf(msg->err_fp,
-                        "[*] File%d: the line number of the error read is %" PRIu64 "!\n",
-                        file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
-                break;
-
-            case -3:  /* failed to detect line breaks('\n') */
-                fprintf(msg->err_fp,
-                        "[FormatError:fastq_reader_error_handle:212] failed to detect line breaks('\\n') in the READ!\n");
-                fprintf(msg->err_fp,
-                        "[*] File%d: the line number of the error read is %" PRIu64 "!\n",
-                        file_idx + 1, (task->total_reads + f_cache->n) * 4 + 1);
-                break;
-
-            default:  /* (ret_value == -1) unexpected end of the fastq file */
-                break;
-        }
+        fprintf(msg->err_fp, "[FormatError:fastq_reader_error_handle:202] the number of reads cached is different!\n");
+        fprintf(msg->err_fp, "[*] File1: %zu <--> File%d: %zu\n", first_count, file_idx + 1, count);
         pthread_mutex_unlock(&msg->err_lock);
+        mismatch = true;
     }
 
-    return ret_code;
+    return mismatch;
+}
+
+
+static int fastq_batch_status(const reader_job_t *jobs, const thread_task_t *task)
+{
+    if (report_read_errors(jobs, task))
+        return -1;
+
+    if (report_count_mismatches(task))
+        return -1;
+
+    return task->cache[0].n > 0;
 }
 
 
@@ -540,7 +568,7 @@ static int32_t fastq_reader_cache_handle(threadpool_t *thr_pool, reader_job_t *j
     jobs->read_offset += task->cache->n;
 
     /* handle errors and EOF during fastq caching */
-    return fastq_reader_error_process(jobs, task, task->msg_obj);
+    return fastq_batch_status(jobs, task);
 }
 
 
@@ -553,13 +581,10 @@ static void thread_truncate_check_core(void *args)
     GzStream *file_hd = task->files_hd[job->file_idx];
     const int32_t batch_mask = (1<<task->n_file) - 1;
 
-    while (1) {
-        job->ret_value = gz_read_block(file_hd);
-        if (job->ret_value > 0)  /* normal caching of the block */
-            continue;
-
-        /* truncated detected or EOF of the file */
-        break;
+    if (job->ret_value != FASTQ_READ_STREAM_ERROR) {
+        do {
+            job->ret_value = gz_read_block(file_hd);
+        } while (job->ret_value > 0);
     }
 
     /* set the file ready mask for the file batch (batch means pair-end files) */
@@ -580,9 +605,6 @@ static void fastq_truncate_error_handle(threadpool_t *thr_pool, reader_job_t *jo
     /* caching reads for all files in parallel */
     for (int file_idx=0; file_idx < n_file; file_idx++) {
         reader_job_t *job = &jobs[file_idx];
-        job->task = task;
-        job->file_idx = file_idx;
-        job->ret_value = 0;
         threadpool_add(thr_pool, thread_truncate_check_core, job, 0);
     }
 
@@ -601,7 +623,7 @@ static void fastq_truncate_error_handle(threadpool_t *thr_pool, reader_job_t *jo
         /* truncated file detected */
         pthread_mutex_lock(&task->msg_obj->err_lock);
         fprintf(task->msg_obj->err_fp,
-                "[FileError:file_truncate_error_handle:] truncated fastq file (File%d) detected!\n",
+                "[FileError:file_truncate_error_handle:101] truncated fastq file (File%d) detected!\n",
                 file_idx + 1);
         pthread_mutex_unlock(&task->msg_obj->err_lock);
     }

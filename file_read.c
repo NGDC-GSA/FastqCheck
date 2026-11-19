@@ -325,12 +325,12 @@ GzStream *gz_stream_open(char *file, char *mode)
 }
 
 
-int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length)
+gz_status_t gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length)
 {
     size_t len = 0;
 
     if (gz->is_eof && gz->begin >= gz->end)  /* end of the file */
-        return 0;
+        return GZ_LINE_EOF;
 
     /* the body runs at least once, so the remaining data
     * in the buffer is scanned even when is_eof is already set */
@@ -338,7 +338,7 @@ int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length
         if (gz->begin >= gz->end) {  /* gz->buf is full or the first time to read */
             gz->begin = 0;
             gz->end = gz->stream.read(gz->stream.fp, gz->buf, GZ_BUFF_SIZE);
-            if (gz->end < 0) return -1; /* truncated file detected */
+            if (gz->end < 0) return GZ_LINE_STREAM_ERROR;
             if (gz->end < GZ_BUFF_SIZE) gz->is_eof = 1;
         }
         while (gz->begin < gz->end) {  /* search the delimiter in block via memchr */
@@ -349,7 +349,7 @@ int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length
             if (len + n_bytes >= (size_t)max_length) {  /* line too long */
                 fprintf(stderr, "[SysError:gz_read_util:014] read length can not be longer than %d!\n", max_length);
                 fprintf(stderr, "[*] the main reason is that line breaks('\\n') can not be detected in the READ!\n");
-                return -2;
+                return GZ_LINE_TOO_LONG;
             }
             if (ks_str->m < len + n_bytes + 1) {  /* grow the user-provided ks_str */
                 ks_str->m = len + n_bytes + 4;
@@ -369,15 +369,14 @@ int gz_read_util(GzStream *gz, char delimiter, kstring_t *ks_str, int max_length
             if (delim) {  /* delimiter found */
                 gz->begin++;  /* skip the delimiter */
                 ks_str->s[len] = '\0'; ks_str->l = len;
-                return 1;
+                return GZ_LINE_OK;
             }
         }
     } while (!gz->is_eof);
 
-    /* end of the file (EOF) detected; the remaining bytes without a
-     * trailing delimiter belong to a problematic file, so they are
-     * discarded and reported as an incomplete read by the caller */
-    return 0;
+    /* broken fastq read line detected */
+    ks_str->s[len] = '\0'; ks_str->l = len;
+    return len ? GZ_LINE_UNTERMINATED : GZ_LINE_OK;
 }
 
 
