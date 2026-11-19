@@ -298,7 +298,9 @@ static statistic_t *calculate_result_summary(thread_args_t *args)
     }
 
     /* calculate other filed or copy the content to statis object */
-    statis->gc_content = (double)(statis->n_bases_num[1] + statis->n_bases_num[2]) / (double)statis->n_total_bases;
+    if (statis->n_total_bases != 0)
+        statis->gc_content = (double)(statis->n_bases_num[1] + statis->n_bases_num[2]) / (double)statis->n_total_bases;
+
     strip_access_path(statis->access_path);
 
     return statis;
