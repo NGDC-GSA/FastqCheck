@@ -378,7 +378,7 @@ static thread_args_t *thread_args_init(arg_t *args)
 
     err_calloc(thr_args, 1, thread_args_t);
     thr_args->task_index = 0;
-    thr_args->task_size = args->n_thread;
+    thr_args->task_size = args->thread;
 
     fprintf(stdout, "[%s] Initiating the base data struct ...\n", get_current_time(time_buf));
     thr_args->msg_obj = check_message_init(args->error_file, args->out_file);

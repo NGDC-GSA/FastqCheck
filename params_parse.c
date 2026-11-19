@@ -82,10 +82,10 @@ static const struct option long_options[] =
     { "error_file", required_argument, NULL, 'e' },
     { "max_reads", required_argument, NULL, 'x' },
     { "phred_value", required_argument, NULL, 'P' },
-    { "ratio", optional_argument, NULL, 'r' },
-    { "max_length", optional_argument, NULL, 'm' },
-    { "pair_check", optional_argument, NULL, 'p' },
-    { "n_thread", optional_argument, NULL, 't' },
+    { "ratio", required_argument, NULL, 'r' },
+    { "max_length", required_argument, NULL, 'm' },
+    { "pair_check", required_argument, NULL, 'p' },
+    { "thread", required_argument, NULL, 't' },
     { NULL, 0, NULL, 0 }
 };
 
@@ -99,9 +99,8 @@ arg_t *args_parse(int argc, char **argv)
     args->compress_ratio = 10;  // 10% of the original fastq file
     args->max_length = 50 * 1024 * 1024; // 50 MB
     args->pair_check = 1;
-    args->n_thread = 1;
+    args->thread = 1;
 
-    if (argc < 11) show_usage();
     while ( (opt = getopt_long(argc, argv, "i:o:e:x:P:r:m:p:t:h", long_options, NULL)) != -1 )
     {
         switch (opt) {
@@ -114,16 +113,15 @@ arg_t *args_parse(int argc, char **argv)
             case 'r': args->compress_ratio = atoi(optarg); break;
             case 'm': args->max_length = atoi(optarg)*1024*1024; break;
             case 'p': args->pair_check = atoi(optarg); break;
-            case 't': args->n_thread = atoi(optarg); break;
-            case '?': fprintf(stderr, "[SysError:args_parse:017] failed to parse the parameter of %s!\n\n", optarg); args->help = 1;
+            case 't': args->thread = atoi(optarg); break;
+            default: show_usage(); break;
         }
     }
 
-    /* do not check the pair_marker in single-end fastq file */
-    if (get_file_number(args->in_file) < 2) 
-        args->pair_check = 0;
+    if (args->help || !args->in_file || !args->out_file || !args->error_file || !args->max_reads)
+        show_usage();
 
-    /* the pari marker only could be 0 or 1 */
+    /* The pair-check option accepts 0 or 1. */
     if (args->pair_check != 0 && args->pair_check != 1) {
         fprintf(stderr, "[SysError:args_parse:018] the pair_check parameter must be 0 or 1!\n");
         args->help = 1;
@@ -135,9 +133,9 @@ arg_t *args_parse(int argc, char **argv)
         args->help = 1;
     }
 
-    /* required parameters */
-    if (args->help||!args->in_file||!args->out_file||!args->error_file||!args->max_reads||!args->phred_value)
-        show_usage();
+    /* Disable pair marker checking for single-end input after validating options. */
+    if (get_file_number(args->in_file) < 2)
+        args->pair_check = 0;
 
     return args;
 }
