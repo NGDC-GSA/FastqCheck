@@ -268,7 +268,7 @@ Email:   zhangxiaolong@big.ac.cn
 Descrip:
     redesign the check flow as a multithreading pipeline to speed up the checking of large-scale fastq files
     1. fastq_check.c: add the multithreading pipeline (a reader thread + a reader threadpool with one thread for each input file)
-       a checker threadpool with n_thread threads for the batch content checking;
+       a checker threadpool with the thread count set by -t for the batch content checking;
        a duplicate-check thread for the read name checking;
     2. kqueue.c/kqueue.h: add the thread-safe circular queue (kqueue) as the task queue between the reader thread and the duplicate-check thread
     3. fastq_check.c: add the thread task object (thread_task_t) with the batch status mask protocol (1: batch cached -> 11: content checked -> 111: duplicate checked)
@@ -384,3 +384,29 @@ Descrip:
   (the %llu/%ld forms were wrong on Windows); fastq_check.h: add a localtime_r shim
   for mingw-w64; CMakeLists.txt: silence the vendored bzip2 build warnings
 - version.h/README.md: bump to 2.0.6 and update the date
+
+===================== Version2.0.7 (2026-11-19) =====================
+### Fix
+
+- Preserve read errors when another input reaches EOF in the same batch. Report
+  unequal final record counts (202) even when all files reach EOF together.
+  Statistics include only batches submitted before the error.
+- Report an unterminated final FASTQ line as an incomplete record (201).
+  For a complete record missing its initial '@' or '+', report the file and
+  offending line (206). Preserve stream errors for the truncation report (101).
+- Report 0.00% GC content in the XML when the submitted batches contain no bases.
+- Parse values supplied as separate arguments to --ratio, --max_length,
+  --pair_check and --thread. Check required paths before opening the file list.
+
+### Refactor
+
+- Use named line and record statuses in the FASTQ reader. Handle format
+  diagnostics, per-file record counts and the batch return value separately.
+- Select the input reader by filename suffix (.gz, .bz2 or plain input).
+  The bzip2 backend now manages its underlying file handle and decoder.
+
+### Documentation
+
+- Update the README error-code tables with diagnostic origins, trigger conditions
+  and output destinations. Clarify the per-line limit for -m and the scope of
+  XML statistics after a read error.
