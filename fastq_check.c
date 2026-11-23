@@ -644,13 +644,15 @@ static void thread_fastq_check_core(void *args)
         char file_marker = (char)('1' + file_idx);
 
         /* check the read pair marker and ensure they are the same as the file order */
-        if (task->pair_check && pair_marker != file_marker && msg->pair_check) {
+        if (task->pair_check && pair_marker != file_marker) {
             pthread_mutex_lock(&msg->err_lock);
-            fprintf(msg->err_fp,
-                    "[FormatError:thread_fastq_check_core:205] "
-                    "the pair marker of File%d should be %c instead of %c!\n",
-                    file_idx + 1, file_marker, pair_marker);
-            msg->pair_check = 0;
+            if (msg->pair_check) {
+                fprintf(msg->err_fp,
+                        "[FormatError:thread_fastq_check_core:205] "
+                        "the pair marker of File%d should be %c instead of %c!\n",
+                        file_idx + 1, file_marker, pair_marker);
+                msg->pair_check = 0;
+            }
             pthread_mutex_unlock(&msg->err_lock);
         }
 
@@ -660,13 +662,15 @@ static void thread_fastq_check_core(void *args)
 
             /* check whether the pair_marker are same for all reads */
             char read_marker = read_name_trim(&read->name);
-            if (task->pair_check && read_marker != pair_marker && msg->pair_check) {
+            if (task->pair_check && read_marker != pair_marker) {
                 pthread_mutex_lock(&msg->err_lock);
-                fprintf(msg->err_fp,
-                        "[FormatError:thread_fastq_check_core:208] "
-                        "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (its pair_marker '%c' is different to others '%c')!\n",
-                        file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s, read_marker, pair_marker);
-                msg->pair_check = 0;
+                if (msg->pair_check) {
+                    fprintf(msg->err_fp,
+                            "[FormatError:thread_fastq_check_core:208] "
+                            "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (its pair_marker '%c' is different to others '%c')!\n",
+                            file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s, read_marker, pair_marker);
+                    msg->pair_check = 0;
+                }
                 pthread_mutex_unlock(&msg->err_lock);
             }
 
@@ -682,28 +686,32 @@ static void thread_fastq_check_core(void *args)
                 read_t *f0_read = &task->cache->reads[read_idx];
                 int32_t ret_value = strcmp(f0_read->name.s, read->name.s);
 
-                if (ret_value != 0 && msg->name_check) {
+                if (ret_value != 0) {
                     pthread_mutex_lock(&msg->err_lock);
-                    fprintf(msg->err_fp,
-                            "[FormatError:thread_fastq_check_core:209] "
-                            "[L(%" PRIu64 ")] the read name is not in the same order between two fastq file!\n",
-                            (task->total_reads + read_idx) * 4 + 1);
-                    fprintf(msg->err_fp,
-                            "  [*] File1: '%s' <--> File%d: '%s'\n",
-                            f0_read->name.s, file_idx + 1, read->name.s);
-                    msg->name_check = 0;
+                    if (msg->name_check) {
+                        fprintf(msg->err_fp,
+                                "[FormatError:thread_fastq_check_core:209] "
+                                "[L(%" PRIu64 ")] the read name is not in the same order between two fastq file!\n",
+                                (task->total_reads + read_idx) * 4 + 1);
+                        fprintf(msg->err_fp,
+                                "  [*] File1: '%s' <--> File%d: '%s'\n",
+                                f0_read->name.s, file_idx + 1, read->name.s);
+                        msg->name_check = 0;
+                    }
                     pthread_mutex_unlock(&msg->err_lock);
                 }
             }
 
             /* check whether the sequence length is the same as quality */
-            if (read->seq.l != read->qual.l && msg->length_check) {
+            if (read->seq.l != read->qual.l) {
                 pthread_mutex_lock(&msg->err_lock);
-                fprintf(msg->err_fp,
-                        "[FormatError:thread_fastq_check_core:207] "
-                        "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (length of the sequence and quality is different)!\n",
-                        file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s);
-                msg->length_check = 0;
+                if (msg->length_check) {
+                    fprintf(msg->err_fp,
+                            "[FormatError:thread_fastq_check_core:207] "
+                            "[F(%d):L(%" PRIu64 ")] the format of the read '%s' is wrong (length of the sequence and quality is different)!\n",
+                            file_idx + 1, (task->total_reads + read_idx) * 4 + 1, read->name.s);
+                    msg->length_check = 0;
+                }
                 pthread_mutex_unlock(&msg->err_lock);
             }
 
