@@ -410,3 +410,14 @@ Descrip:
 - Update the README error-code tables with diagnostic origins, trigger conditions
   and output destinations. Clarify the per-line limit for -m and the scope of
   XML statistics after a read error.
+
+===================== Version2.0.8 (2026-11-23) =====================
+### Fix
+
+- Report Bloom filter capacity overflow (023) once per run and continue checking
+  subsequent reads for possible duplicate names.
+- Report the 1,000th possible duplicate name (210) with its line and read name.
+  Continue counting later matches with a 64-bit counter.
+- Synchronize the format-report flags across checker threads. The pair-marker
+  checks (205 and 208) share one report per run. Sequence/quality length errors
+  (207) and mismatched read names across files (209) each get one report.
