@@ -786,11 +786,10 @@ static void *thread_fastq_reader(void *args)
 
 static void duplicate_error_process(thread_task_t *task, int32_t read_idx, int32_t ret_value)
 {
-    /* the item may existed in the bloomfilter */
     message_t *msg = task->msg_obj;
 
     if (ret_value == 1) {
-        if (++msg->n_duplicate < READ_NAME_DUPLICATE_MAX)
+        if (++msg->n_duplicate != READ_NAME_DUPLICATE_MAX)
             return;
 
         /* there may be duplicate in the files */
@@ -799,23 +798,23 @@ static void duplicate_error_process(thread_task_t *task, int32_t read_idx, int32
 
         fprintf(msg->err_fp,
                 "[FormatError:duplicate_error_process:210] "
-                "[F(1):L(%" PRIu64 ")] the number of duplicate read name is larger than %d (details in STANDOUT or Screen)!\n",
+                "[F(1):L(%" PRIu64 ")] detected %d possible duplicate read names.\n",
                 (task->total_reads + read_idx) * 4 + 1, READ_NAME_DUPLICATE_MAX);
         fprintf(msg->err_fp,
-                "  [*] one of the duplicate read name: %s\n",
+                "  [*] possible duplicate at this line: %s\n",
                 f_cache->reads[read_idx].name.s);
         pthread_mutex_unlock(&msg->err_lock);
         return;
     }
 
-    /* there is no space remain for more items */
-    if (ret_value == -1) {
+    if (ret_value == -1 && !msg->bloom_reported) {
+        msg->bloom_reported = 1;
         pthread_mutex_lock(&msg->err_lock);
         fprintf(msg->err_fp,
                 "[SysError:duplicate_error_process:023] "
                 "the compression ratio of fastq file is greater than default parameter 10!\n");
         fprintf(msg->err_fp,
-                "  [*] Please set the parameter -r (--ratio) greater than the default value 10, e.g. 15, 20, etc!\n");
+                "  [*] Increase -x (--max_reads, in millions) or increase -r (--ratio) above 10.\n");
         pthread_mutex_unlock(&msg->err_lock);
     }
 }

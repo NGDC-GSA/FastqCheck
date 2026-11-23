@@ -100,6 +100,7 @@ typedef struct result_t {
   @field  error_fp          pointer to the error message file
   @field  out_fp            pointer to the output file
   @field  n_duplicate       potential duplicate read name checked
+  @field  bloom_reported    whether the duplicate-check thread has reported a Bloom filter capacity overrun
   @field  name_check        check whether the read name is not in the same order (0 -> checked)
   @field  length_check      whether the read length has not been checked yet (0 -> checked)
   @field  pair_check        whether the read pair has not been checked yet (0 -> checked)
@@ -108,7 +109,8 @@ typedef struct result_t {
 typedef struct message_t {
     FILE *err_fp;
     FILE *out_fp;
-    int n_duplicate;
+    uint64_t n_duplicate;
+    int bloom_reported;
     int name_check;
     int length_check;
     int pair_check;
