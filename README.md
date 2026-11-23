@@ -4,14 +4,14 @@ An efficient tool for FASTQ sequencing data format validation and quality statis
 
 
 __PROGRAM: fastqcheck__<br>
-__VERSION: 2.0.7__<br>
+__VERSION: 2.0.8__<br>
 __PLATFORM: Linux / macOS__<br>
 __ARCHITECTURE: x86_64 / arm64__<br>
 __COMPILER: gcc (C99)__<br>
 __AUTHOR: xiaolong zhang__<br>
 __EMAIL: xiaolongzhang2015@163.com__<br>
 __DATE:   2022-07-25__<br>
-__UPDATE: 2026-11-19__<br>
+__UPDATE: 2026-11-23__<br>
 __DEPENDENCE__<br>
 * __CMake (>= 3.16) and gcc/clang__<br>
 * __zlib-ng__ (bundled source tree, no system zlib required)<br>
@@ -342,7 +342,7 @@ File and format diagnostics go to the report specified by `-e`. System diagnosti
 | `021` | `check_message_init` | The XML output could not be opened for writing. |
 | `021` | `fastq_cache_init` | Memory allocation failed for a file's read cache. |
 | `022` | `bloomfilter_size_init` | The Bloom filter could not be initialized. |
-| `023` | `duplicate_error_process` | The number of new entries added to the Bloom filter exceeded its configured capacity. The report suggests increasing `-r`. |
+| `023` | `duplicate_error_process` | Reported once per run when the number of new entries first exceeds the Bloom filter capacity. Increase `-x` or increase `-r` above 10 to allocate a larger filter. |
 | `025` | `args_parse` | The parsed Phred offset is neither 33 nor 64. |
 
 ### 5.4.2 FileError (file errors, 101)
@@ -362,9 +362,11 @@ File and format diagnostics go to the report specified by `-e`. System diagnosti
 | `207` | `thread_fastq_check_core` | A read's sequence and quality lines differ in length. The location is the start of the record. |
 | `208` | `thread_fastq_check_core` | With pair checking enabled, a read's pair marker differs from the first marker in the same file and batch. |
 | `209` | `thread_fastq_check_core` | The trimmed read names at the same record position differ between File1 and another file. The report shows the line and both names. |
-| `210` | `duplicate_error_process` | The Bloom filter flagged a possible duplicate read name in File1. Reporting starts at the 1,000th such match and includes the line and name for each subsequent match. |
+| `210` | `duplicate_error_process` | Reported once per run at the 1,000th possible duplicate read name in File1. The report gives the line and read name for that match. |
 | `211` | `calculate_result_summary_core` | A file contains at least one sequence base outside A, C, G, T and N (case-insensitive). The message displays `0.010`, but the implementation flags any invalid base in the submitted batches. |
 | `212` | `fastq_reader_error_handle` | A line reached or exceeded the `-m` limit. The report gives the start of the record, and `014` on `stderr` gives the limit in bytes. |
+
+FastqCheck reports the first pair-marker error (`205` or `208`) once per run. It also reports `207` and `209` at most once each, across all checker threads.
 
 A read error or a record count mismatch stops batch submission. The XML then includes only previously submitted batches. The reader reports format errors for each affected file and compares record counts only when every file finished the batch without a read error. Diagnostics from the checker, duplicate check and XML summarization allow processing to continue.
 
